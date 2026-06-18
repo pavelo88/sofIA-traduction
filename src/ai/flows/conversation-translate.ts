@@ -1,7 +1,7 @@
 'use server';
 /**
- * @fileOverview Flujo de Genkit para la traducción de conversaciones en tiempo real.
- * Detecta el idioma y traduce bidireccionalmente entre Inglés y Español.
+ * @fileOverview Flujo de Genkit optimizado para traducción de conversaciones en tiempo real.
+ * Proporciona traducciones puras sin texto de relleno para síntesis de voz.
  */
 
 import { ai } from '@/ai/genkit';
@@ -9,12 +9,12 @@ import { z } from 'genkit';
 
 const ConversationTranslateInputSchema = z.object({
   text: z.string().describe('El texto capturado por voz.'),
-  targetLanguage: z.string().describe('El idioma al que se desea traducir (ej. "Spanish" o "English").'),
+  fromLanguage: z.string().describe('Idioma de origen.'),
+  toLanguage: z.string().describe('Idioma de destino.'),
 });
 
 const ConversationTranslateOutputSchema = z.object({
-  translatedText: z.string().describe('La traducción resultante.'),
-  detectedLanguage: z.string().describe('El idioma detectado originalmente.'),
+  translatedText: z.string().describe('La traducción limpia resultante.'),
 });
 
 export type ConversationTranslateOutput = z.infer<typeof ConversationTranslateOutputSchema>;
@@ -23,20 +23,22 @@ const conversationPrompt = ai.definePrompt({
   name: 'conversationPrompt',
   input: { schema: ConversationTranslateInputSchema },
   output: { schema: ConversationTranslateOutputSchema },
-  prompt: `Eres un traductor de élite integrado en el asistente espacial Kitten.
-Tu misión es traducir el siguiente texto al idioma: {{{targetLanguage}}}.
+  prompt: `Eres un traductor de élite de SoftIA. 
+Tu misión es traducir el siguiente texto de {{{fromLanguage}}} a {{{toLanguage}}}.
 
-Texto: "{{{text}}}"
+INSTRUCCIONES CRÍTICAS:
+1. Entrega ÚNICAMENTE la traducción limpia.
+2. NO incluyas comentarios, introducciones, explicaciones o texto de relleno.
+3. El resultado será leído por un software de texto a voz, así que mantén la puntuación correcta para una entonación natural.
 
-Instrucciones:
-1. Mantén el tono natural y fluido de una conversación.
-2. Detecta el idioma original con precisión.
-3. Si el texto ya está en el idioma objetivo, devuélvelo igual pero asegúrate de que sea gramaticalmente perfecto.
-
-Kitten dice: ¡Traducción lista para el despegue! 🚀`,
+Texto a traducir: "{{{text}}}"`,
 });
 
-export async function translateConversation(input: { text: string; targetLanguage: string }): Promise<ConversationTranslateOutput> {
+export async function translateConversation(input: { 
+  text: string; 
+  fromLanguage: string; 
+  toLanguage: string; 
+}): Promise<ConversationTranslateOutput> {
   const { output } = await conversationPrompt(input);
   if (!output) throw new Error('Error en la matriz de traducción espacial.');
   return output;
