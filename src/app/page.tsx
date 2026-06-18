@@ -9,7 +9,7 @@ import {
   Zap,
   Activity,
   Star,
-  AlertCircle
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 /**
  * Pantalla Principal: Dashboard de SoftIA
- * Maneja la interacción con Kitten y muestra el estado del sistema.
+ * Maneja la interacción con Kitten y muestra el estado del sistema con diagnóstico de API.
  */
 export default function Home() {
   const { learningProgress } = useStore();
@@ -34,7 +34,7 @@ export default function Home() {
   const [kittenResponse, setKittenResponse] = useState('¡Hola! Soy Kitten. ¿Listo para nuestra sesión espacial de hoy? 🐱✨ ¡Prrr!');
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [apiErrorType, setApiErrorType] = useState<'403' | 'other' | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -42,13 +42,12 @@ export default function Home() {
 
   /**
    * Manejador de eventos que envía la solicitud a Gemini y guarda en Firestore.
-   * Incluye detección de errores 403 (API bloqueada).
    */
   const handleKittenChat = async () => {
     if (!input.trim() || isLoading) return;
 
     setIsLoading(true);
-    setApiError(null);
+    setApiErrorType(null);
     const userMessage = input;
     setInput('');
 
@@ -69,7 +68,7 @@ export default function Home() {
       
       setKittenResponse(result.response);
 
-      // 3. Guardar respuesta de Kitten para memoria a largo plazo
+      // 3. Guardar respuesta de Kitten
       addDoc(collection(db, 'chat_history'), {
         role: 'model',
         content: result.response,
@@ -80,10 +79,10 @@ export default function Home() {
     } catch (error: any) {
       console.error("Error en chat de Kitten:", error);
       
-      // Detección específica de API no habilitada (Error 403)
-      if (error.message?.includes('403') || error.message?.toLowerCase().includes('blocked') || error.message?.toLowerCase().includes('forbidden')) {
-        setApiError("¡Miau! 😿 El acceso a mi cerebro espacial está bloqueado (Error 403). Debes habilitar la 'Generative Language API' en tu Google Cloud Console para este proyecto.");
-        setKittenResponse("Mi señal está siendo bloqueada por un escudo de energía. ¡Necesito ayuda técnica! 🚀");
+      const errorMsg = error.message?.toLowerCase() || "";
+      if (errorMsg.includes('403') || errorMsg.includes('blocked') || errorMsg.includes('forbidden')) {
+        setApiErrorType('403');
+        setKittenResponse("Mi señal está siendo bloqueada por un escudo de energía. ¡Miau! 😿");
       } else {
         setKittenResponse("¡Miau!... algo interfirió con mi señal espacial. Revisa tu conexión cósmica. 🚀");
       }
@@ -97,27 +96,22 @@ export default function Home() {
   return (
     <main className="relative min-h-screen bg-background overflow-hidden flex flex-col items-center">
       
-      {/* Fondo estático con gradiente espacial */}
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-primary/10 via-background to-background" />
 
-      {/* --- PANEL SUPERIOR: KITTEN ASSISTANT --- */}
       <header className="relative z-20 w-full max-w-4xl pt-16 px-6 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
         
-        {apiError && (
-          <Alert variant="destructive" className="mb-6 border-destructive/50 bg-destructive/10 backdrop-blur-md animate-in slide-in-from-top-2">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle className="font-headline uppercase tracking-widest text-xs">Error Crítico de API</AlertTitle>
-            <AlertDescription className="text-xs opacity-90 mt-2">
-              {apiError}
-              <br />
-              <a 
-                href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" 
-                target="_blank" 
-                rel="noreferrer"
-                className="underline mt-2 inline-block font-bold"
-              >
-                Habilitar API aquí →
-              </a>
+        {apiErrorType === '403' && (
+          <Alert variant="destructive" className="mb-6 border-amber-500/50 bg-amber-500/10 backdrop-blur-md animate-in slide-in-from-top-2">
+            <ShieldAlert className="h-5 w-5 text-amber-500" />
+            <AlertTitle className="font-headline uppercase tracking-widest text-xs text-amber-500">Diagnóstico de Seguridad 🛡️</AlertTitle>
+            <AlertDescription className="text-xs opacity-90 mt-2 text-white">
+              Si ya habilitaste la API y sigue fallando, revisa las <strong>Restricciones de la Clave de API</strong>:
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>Ve a <b>APIs y servicios &gt; Credenciales</b> en Google Cloud.</li>
+                <li>Edita tu Clave de API.</li>
+                <li>Asegúrate de que <b>"Generative Language API"</b> esté permitida en la lista de restricciones de API.</li>
+                <li>O selecciona "Sin restricciones" temporalmente para probar.</li>
+              </ul>
             </AlertDescription>
           </Alert>
         )}
@@ -128,7 +122,7 @@ export default function Home() {
             <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/40 animate-pulse-glow">
               <span className="text-5xl" role="img" aria-label="Kitten Avatar">🐱</span>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-background" title="Sistema Online" />
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-background" />
           </div>
 
           <div className="flex-1 space-y-6 w-full text-center md:text-left">
@@ -162,10 +156,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Indicadores del Sistema en el HUD */}
         <div className="flex flex-wrap justify-center gap-4 mt-12">
           <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-white/60 border-white/5">
-            <Activity className="w-4 h-4 text-green-500" /> NÚCLEO_IA: {apiError ? 'BLOQUEADO' : 'ONLINE'}
+            <Activity className="w-4 h-4 text-green-500" /> NÚCLEO_IA: {apiErrorType ? 'LIMITADO' : 'ONLINE'}
           </div>
           <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-white/60 border-white/5">
             <Star className="w-4 h-4 text-primary fill-primary" /> PROGRESO: {currentLevel}%
@@ -173,7 +166,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Elementos Decorativos de la Interfaz Espacial */}
       <div className="fixed top-10 left-10 w-16 h-16 border-t border-l border-white/10 rounded-tl-2xl pointer-events-none opacity-20" />
       <div className="fixed top-10 right-10 w-16 h-16 border-t border-r border-white/10 rounded-tr-2xl pointer-events-none opacity-20" />
     </main>

@@ -3,13 +3,16 @@ import { googleAI } from '@genkit-ai/google-genai';
 
 /**
  * @fileOverview Configuración central de Genkit.
- * Asegura el uso de la clave de API correcta para los modelos de Google AI.
+ * Se asegura de capturar la clave de API desde el entorno del servidor.
  */
 
-// Intentamos capturar la clave de múltiples fuentes para máxima compatibilidad
 const apiKey = process.env.GEMINI_API_KEY || 
                process.env.GOOGLE_GENAI_API_KEY || 
                process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+if (!apiKey) {
+  console.warn("⚠️ Advertencia: No se detectó ninguna clave de API para Genkit. Revisa tu archivo .env");
+}
 
 export const ai = genkit({
   plugins: [
@@ -17,6 +20,6 @@ export const ai = genkit({
       apiKey: apiKey,
     }),
   ],
-  // Utilizamos gemini-1.5-flash para balancear velocidad y precisión
+  // Utilizamos gemini-1.5-flash para máxima velocidad en el MVP
   model: 'googleai/gemini-1.5-flash',
 });
