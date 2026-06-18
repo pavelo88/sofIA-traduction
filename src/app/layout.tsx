@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
@@ -7,7 +8,7 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 
 /**
  * RootLayout: Estructura base de SoftIA.
- * Forzamos una actualización de renderizado para sincronizar variables de entorno (Ref: EnvSync_v3).
+ * Forzamos una actualización de renderizado para sincronizar variables de entorno (Ref: EnvSync_v4_Stable).
  */
 
 export const metadata: Metadata = {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -23,7 +24,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v3.2.0 - Voz Directa y Fluida)
+ * Pantalla Principal: Dashboard de SoftIA (v3.2.1 - Estabilizado)
  */
 export default function Home() {
   const { learningProgress, nativeLanguage, targetLanguage } = useStore();
@@ -41,11 +42,17 @@ export default function Home() {
   
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
+  
+  // Ref para el input para evitar recrear callbacks constantemente
+  const inputRef = useRef(input);
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
 
   const speak = (text: string) => {
-    if (!window.speechSynthesis) return;
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    // Mapear idioma objetivo a código de idioma para TTS
     utterance.lang = targetLanguage === 'Inglés' ? 'en-US' : 
                      targetLanguage === 'Español' ? 'es-ES' : 
                      targetLanguage === 'Francés' ? 'fr-FR' : 'es-ES';
@@ -53,12 +60,12 @@ export default function Home() {
   };
 
   const handleKittenChat = useCallback(async (textToSubmit?: string) => {
-    const finalInput = textToSubmit || input;
+    const finalInput = textToSubmit || inputRef.current;
     if (!finalInput.trim() || isLoading) return;
 
     setIsLoading(true);
     setApiErrorType(null);
-    if (!textToSubmit) setInput(''); // Solo limpiar si fue manual
+    if (!textToSubmit) setInput('');
 
     try {
       addDoc(collection(db, 'chat_history'), {
@@ -96,12 +103,13 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [db, isLoading, nativeLanguage, targetLanguage, input]);
+  }, [db, isLoading, nativeLanguage, targetLanguage]);
 
   useEffect(() => {
     setIsMounted(true);
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
+    
+    if (SpeechRecognition && !recognitionRef.current) {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
@@ -125,7 +133,6 @@ export default function Home() {
       };
 
       recognition.onend = () => {
-        // Enviar automáticamente si hubo captura de voz, sin llenar la caja de texto
         if (transcriptRef.current.trim()) {
           handleKittenChat(transcriptRef.current);
           transcriptRef.current = '';
@@ -133,11 +140,7 @@ export default function Home() {
         setIsRecording(false);
       };
 
-      recognition.onerror = (event: any) => {
-        console.warn("Speech recognition error:", event.error);
-        setIsRecording(false);
-      };
-      
+      recognition.onerror = () => setIsRecording(false);
       recognitionRef.current = recognition;
     }
 
@@ -156,8 +159,7 @@ export default function Home() {
       try {
         recognitionRef.current.start();
       } catch (err) {
-        console.error("Fallo al iniciar el reconocimiento:", err);
-        setIsRecording(true);
+        setIsRecording(false);
       }
     }
   };

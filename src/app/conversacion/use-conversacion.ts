@@ -17,6 +17,7 @@ export type ChatItem = {
 /**
  * @summary Hook de lógica central para el modo conversación.
  * Maneja reconocimiento, síntesis, cámara e intercambio de turnos.
+ * v4.1: Estabilización de loops de hardware.
  */
 export function useConversacion() {
   const { nativeLanguage, targetLanguage, userVoiceGender, partnerVoiceGender } = useStore();
@@ -99,7 +100,7 @@ export function useConversacion() {
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SpeechRecognition) {
+    if (SpeechRecognition && !recognitionRef.current) {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
@@ -145,8 +146,10 @@ export function useConversacion() {
     if (isRecording) recognitionRef.current?.stop();
     else {
       const currentLang = isNativeTurn ? nativeLanguage : targetLanguage;
-      recognitionRef.current.lang = langMap[currentLang] || 'en-US';
-      try { recognitionRef.current.start(); } catch (e) {}
+      if (recognitionRef.current) {
+        recognitionRef.current.lang = langMap[currentLang] || 'en-US';
+        try { recognitionRef.current.start(); } catch (e) {}
+      }
     }
   };
 
