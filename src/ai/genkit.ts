@@ -1,10 +1,9 @@
-
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 
 /**
  * @fileOverview Configuración de Genkit (Servidor).
- * Prioriza GOOGLE_GENAI_API_KEY para la comunicación con Gemini.
+ * Utiliza el modelo gemini-2.5-flash por máxima compatibilidad y velocidad.
  */
 
 const apiKey = process.env.GOOGLE_GENAI_API_KEY || 
@@ -17,5 +16,5 @@ export const ai = genkit({
       apiKey: apiKey,
     }),
   ],
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-2.5-flash',
 });
