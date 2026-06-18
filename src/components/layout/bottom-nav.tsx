@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { ProfileModal } from '@/components/ProfileModal';
 
 /**
- * @summary Navegación inferior estilo Bento Grid con Selector de Idiomas habilitado.
- * Implementa un guardián de montaje para evitar errores de hidratación en Next.js.
+ * @summary Navegación inferior estilo Bento Grid.
+ * Optimizada para no aparecer en Desktop (lg:hidden) para mantener la estética de 3 columnas.
  */
 const navItems = [
   { name: 'Inicio', href: '/', icon: Home },
@@ -22,21 +22,18 @@ export function BottomNav() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
-  // Sincronización de montaje para evitar discrepancias de SSR/CSR
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Durante el renderizado del servidor o el primer ciclo del cliente, 
-  // devolvemos un contenedor vacío con las mismas dimensiones para preservar el layout.
   if (!mounted) {
     return (
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg h-16 pointer-events-none" />
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg h-16 pointer-events-none lg:hidden" />
     );
   }
 
   return (
-    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg">
+    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg lg:hidden animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="glass-panel rounded-full p-2 flex justify-around items-center border-white/10 shadow-primary/20 shadow-2xl bg-black/40 backdrop-blur-2xl">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -59,20 +56,18 @@ export function BottomNav() {
                 {item.name}
               </span>
               {isActive && (
-                <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-white animate-fade-in" />
+                <div className="absolute -bottom-1 w-1 h-1 rounded-full bg-white" />
               )}
             </Link>
           );
         })}
 
-        {/* Separador visual para el área de perfil */}
         <div className="h-8 w-px bg-white/10 mx-2 shrink-0" />
 
-        {/* Selector de Idiomas / Perfil */}
         <ProfileModal>
           <button 
             type="button"
-            title="Ajustes de Idioma"
+            aria-label="Ajustes de Perfil e Idiomas"
             className="p-3 rounded-full text-muted-foreground hover:text-primary transition-colors squish-effect flex flex-col items-center justify-center"
           >
             <User className="w-5 h-5" />
