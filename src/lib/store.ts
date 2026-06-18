@@ -12,6 +12,8 @@ interface AppState {
   learningProgress: number;
   nativeLanguage: string;
   targetLanguage: string;
+  userVoiceGender: 'masculino' | 'femenino';
+  partnerVoiceGender: 'masculino' | 'femenino';
   lastTranslation: {
     original: string;
     translated: string;
@@ -21,6 +23,8 @@ interface AppState {
   incrementProgress: (amount: number) => void;
   setNativeLanguage: (lang: string) => void;
   setTargetLanguage: (lang: string) => void;
+  setUserVoiceGender: (gender: 'masculino' | 'femenino') => void;
+  setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -31,6 +35,8 @@ export const useStore = create<AppState>((set) => ({
   learningProgress: 45,
   nativeLanguage: 'Español',
   targetLanguage: 'Inglés',
+  userVoiceGender: 'masculino',
+  partnerVoiceGender: 'femenino',
   lastTranslation: null,
 
   setThermalTemperature: (temp) => set((state) => {
@@ -53,4 +59,6 @@ export const useStore = create<AppState>((set) => ({
 
   setNativeLanguage: (lang) => set({ nativeLanguage: lang }),
   setTargetLanguage: (lang) => set({ targetLanguage: lang }),
+  setUserVoiceGender: (gender) => set({ userVoiceGender: gender }),
+  setPartnerVoiceGender: (gender) => set({ partnerVoiceGender: gender }),
 }));

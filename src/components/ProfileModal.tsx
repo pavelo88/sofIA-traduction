@@ -20,32 +20,36 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { User, Settings2, Globe, GraduationCap } from 'lucide-react';
+import { User, Settings2, Globe, GraduationCap, Mic2 } from 'lucide-react';
+
+const LANGUAGES = [
+  "Español", "Inglés", "Francés", "Alemán", "Portugués", 
+  "Italiano", "Chino", "Japonés", "Árabe", "Ruso"
+];
 
 export function ProfileModal({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const db = useFirestore();
-  const { nativeLanguage, targetLanguage, setNativeLanguage, setTargetLanguage } = useStore();
+  const { 
+    nativeLanguage, targetLanguage, setNativeLanguage, setTargetLanguage,
+    userVoiceGender, partnerVoiceGender, setUserVoiceGender, setPartnerVoiceGender
+  } = useStore();
   
-  // Referencia al documento de usuario (usamos demo-user si no hay auth real para el MVP)
   const userDocRef = user ? doc(db, 'users', user.uid) : doc(db, 'users', 'demo-user');
   const { data: userData } = useDoc(userDocRef);
 
-  // Sincronizar preferencias desde Firestore al cargar
   useEffect(() => {
     if (userData) {
       if (userData.nativeLanguage) setNativeLanguage(userData.nativeLanguage);
       if (userData.targetLanguage) setTargetLanguage(userData.targetLanguage);
+      if (userData.userVoiceGender) setUserVoiceGender(userData.userVoiceGender);
+      if (userData.partnerVoiceGender) setPartnerVoiceGender(userData.partnerVoiceGender);
     }
-  }, [userData, setNativeLanguage, setTargetLanguage]);
+  }, [userData, setNativeLanguage, setTargetLanguage, setUserVoiceGender, setPartnerVoiceGender]);
 
-  const handleLanguageChange = async (type: 'native' | 'target', value: string) => {
-    if (type === 'native') setNativeLanguage(value);
-    else setTargetLanguage(value);
-
-    // Guardado automático en Firestore
+  const handleUpdate = async (field: string, value: string) => {
     setDoc(userDocRef, {
-      [type === 'native' ? 'nativeLanguage' : 'targetLanguage']: value,
+      [field]: value,
       updated_at: new Date().toISOString()
     }, { merge: true });
   };
@@ -55,14 +59,14 @@ export function ProfileModal({ children }: { children: React.ReactNode }) {
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="glass-panel border-white/10 bg-background/95 backdrop-blur-3xl text-white rounded-[2.5rem]">
+      <DialogContent className="glass-panel border-white/10 bg-background/95 backdrop-blur-3xl text-white rounded-[2.5rem] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-headline text-2xl flex items-center gap-3">
             <Settings2 className="text-primary" /> Perfil Espacial
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-8 py-6">
+        <div className="space-y-6 py-4">
           <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
             <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
               <User className="text-primary" />
@@ -73,46 +77,72 @@ export function ProfileModal({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
               <Label className="text-[10px] uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
                 <Globe className="w-3 h-3" /> Mi Idioma Nativo
               </Label>
-              <Select value={nativeLanguage} onValueChange={(v) => handleLanguageChange('native', v)}>
+              <Select value={nativeLanguage} onValueChange={(v) => { setNativeLanguage(v); handleUpdate('nativeLanguage', v); }}>
                 <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl">
-                  <SelectValue placeholder="Selecciona tu idioma" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-white/10 text-white">
-                  <SelectItem value="Español">Español</SelectItem>
-                  <SelectItem value="Inglés">Inglés</SelectItem>
-                  <SelectItem value="Portugués">Portugués</SelectItem>
-                  <SelectItem value="Francés">Francés</SelectItem>
+                  {LANGUAGES.map(lang => <SelectItem key={lang} value={lang}>{lang}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-3">
               <Label className="text-[10px] uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
-                <GraduationCap className="w-3 h-3" /> Idioma a Aprender
+                <GraduationCap className="w-3 h-3" /> Idioma Objetivo
               </Label>
-              <Select value={targetLanguage} onValueChange={(v) => handleLanguageChange('target', v)}>
+              <Select value={targetLanguage} onValueChange={(v) => { setTargetLanguage(v); handleUpdate('targetLanguage', v); }}>
                 <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl">
-                  <SelectValue placeholder="Selecciona el idioma objetivo" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-white/10 text-white">
-                  <SelectItem value="Inglés">Inglés</SelectItem>
-                  <SelectItem value="Español">Español</SelectItem>
-                  <SelectItem value="Francés">Francés</SelectItem>
-                  <SelectItem value="Alemán">Alemán</SelectItem>
+                  {LANGUAGES.map(lang => <SelectItem key={lang} value={lang}>{lang}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <Label className="text-[10px] uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
+                <Mic2 className="w-3 h-3" /> Mi Voz (Género)
+              </Label>
+              <Select value={userVoiceGender} onValueChange={(v: any) => { setUserVoiceGender(v); handleUpdate('userVoiceGender', v); }}>
+                <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-white/10 text-white">
+                  <SelectItem value="masculino">Masculino</SelectItem>
+                  <SelectItem value="femenino">Femenino</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-[10px] uppercase tracking-[0.2em] text-white/40 flex items-center gap-2">
+                <Mic2 className="w-3 h-3" /> Voz Invitado
+              </Label>
+              <Select value={partnerVoiceGender} onValueChange={(v: any) => { setPartnerVoiceGender(v); handleUpdate('partnerVoiceGender', v); }}>
+                <SelectTrigger className="bg-white/5 border-white/10 h-12 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-white/10 text-white">
+                  <SelectItem value="masculino">Masculino</SelectItem>
+                  <SelectItem value="femenino">Femenino</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
         </div>
 
-        <div className="pt-4">
+        <div className="pt-2">
           <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/80 font-headline font-bold">
-            Guardar Configuración
+            Cerrar Ajustes
           </Button>
         </div>
       </DialogContent>
