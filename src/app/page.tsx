@@ -23,7 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v3.0.0 - Auto-Send & TTS)
+ * Pantalla Principal: Dashboard de SoftIA (v3.1.0 - Corrección de Estado de Voz)
  */
 export default function Home() {
   const { learningProgress, nativeLanguage, targetLanguage } = useStore();
@@ -112,6 +112,10 @@ export default function Home() {
       recognition.interimResults = true;
       recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
 
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
       recognition.onresult = (event: any) => {
         let finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -132,19 +136,33 @@ export default function Home() {
         setIsRecording(false);
       };
 
-      recognition.onerror = () => setIsRecording(false);
+      recognition.onerror = (event: any) => {
+        console.warn("Speech recognition error:", event.error);
+        setIsRecording(false);
+      };
+      
       recognitionRef.current = recognition;
     }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
   }, [nativeLanguage, handleKittenChat]);
 
   const toggleVoice = () => {
     if (!recognitionRef.current) return;
     if (isRecording) {
       recognitionRef.current.stop();
-      setIsRecording(false);
     } else {
-      setIsRecording(true);
-      recognitionRef.current.start();
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error("Fallo al iniciar el reconocimiento:", err);
+        // Si ya estaba iniciado pero el estado estaba desincronizado, forzamos el estado
+        setIsRecording(true);
+      }
     }
   };
 
@@ -160,6 +178,24 @@ export default function Home() {
           <Alert variant="destructive" className="mb-6 border-rose-500/50 bg-rose-500/10 backdrop-blur-md">
             <Wallet className="h-5 w-5 text-rose-500" />
             <AlertTitle className="font-headline uppercase tracking-widest text-xs">Energía Agotada (429)</AlertTitle>
+          </Alert>
+        )}
+
+        {apiErrorType === '403' && (
+          <Alert variant="destructive" className="mb-6 border-rose-500/50 bg-rose-500/10 backdrop-blur-md text-white">
+            <ShieldAlert className="h-5 w-5 text-rose-500" />
+            <AlertTitle className="font-headline uppercase tracking-widest text-xs">Acceso Denegado (403)</AlertTitle>
+            <AlertDescription className="text-xs opacity-80 mt-2">
+              Kitten no tiene permiso para acceder a la inteligencia espacial. 
+              <br />
+              Si ya habilitaste la API y sigue fallando, revisa las <strong>Restricciones de la Clave de API</strong>:
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>Ve a <b>APIs y servicios &gt; Credenciales</b> en Google Cloud.</li>
+                <li>Edita tu Clave de API.</li>
+                <li>Asegúrate de que <b>"Generative Language API"</b> esté permitida en la lista de restricciones de API.</li>
+                <li>O selecciona "Sin restricciones" temporalmente para probar.</li>
+              </ul>
+            </AlertDescription>
           </Alert>
         )}
 
