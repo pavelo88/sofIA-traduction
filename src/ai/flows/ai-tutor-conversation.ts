@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Implementación del flujo de Genkit para el SoftIA Kitten Assistant.
@@ -33,7 +32,7 @@ export type AITutorConversationOutput = z.infer<typeof AITutorConversationOutput
 
 /**
  * Prompt del sistema que define la personalidad exacta de Kitten.
- * Se evita el uso de backticks internos para prevenir errores de parsing en la plantilla.
+ * Se simplificó el manejo del historial para evitar el uso del helper 'eq' no soportado.
  */
 const aiTutorConversationPrompt = ai.definePrompt({
   name: 'aiTutorConversationPrompt',
@@ -44,7 +43,7 @@ const aiTutorConversationPrompt = ai.definePrompt({
 {{#if chatHistory}}
 Historial de nuestra conversación espacial:
 {{#each chatHistory}}
-  {{#if (eq this.role "user")}}Usuario: {{{this.content}}}{{else}}Kitten: {{{this.content}}}{{/if}}
+{{{role}}}: {{{content}}}
 {{/each}}
 {{/if}}
 
