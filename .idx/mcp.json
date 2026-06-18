@@ -9,6 +9,13 @@
         "--only",
         "auth,firestore"
       ]
+    },
+    "studio-1331290909-caa8d": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "myorg/myserver"
+      ]
     }
   }
 }
