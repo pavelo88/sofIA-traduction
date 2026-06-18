@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +9,7 @@ import { collection, addDoc } from 'firebase/firestore';
 
 /**
  * @summary ARLens: Escáner espacial activado por toque.
- * Lógica de ciclo de vida de cámara optimizada para ahorro de energía.
+ * Lógica de ciclo de vida de hardware v5.0 optimizada para prevenir fugas de memoria.
  */
 export default function ARLens() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -24,11 +25,11 @@ export default function ARLens() {
 
   // --- GESTIÓN CRÍTICA DEL HARDWARE (CÁMARA) ---
   useEffect(() => {
-    let stream: MediaStream | null = null;
+    let activeStream: MediaStream | null = null;
 
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode: "environment",
             width: { ideal: 1920 },
@@ -36,24 +37,30 @@ export default function ARLens() {
           },
           audio: false
         });
+        activeStream = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+        console.log(`[SoftIA Hardware] AR Lens inicializado: ${stream.id}`);
       } catch (err) {
-        console.error("Fallo al acceder al hardware de cámara:", err);
+        console.error("[SoftIA Hardware] Fallo al acceder al hardware de cámara:", err);
         setCameraError("VISIÓN_OFF: Acceso denegado o hardware no detectado.");
       }
     }
     
     startCamera();
 
-    // LIMPIEZA TOTAL: Apagar cámara instantáneamente al salir de la ruta
+    // LIMPIEZA TOTAL: Apagar hardware instantáneamente para mitigar consumo de batería
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => {
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => {
           track.stop();
-          console.log(`[SoftIA Hardware] Cámara track apagado: ${track.label}`);
+          console.log(`[SoftIA Hardware] AR Lens track destruido: ${track.kind} - ${track.label}`);
         });
+        activeStream = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
       }
     };
   }, []);

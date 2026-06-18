@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -11,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * @summary ReadingTutor: Sistema de evaluación de pronunciación.
- * Ciclo de vida de cámara corregido para evitar drenaje de batería.
+ * Ciclo de vida de hardware v5.0 corregido para evitar drenaje de batería y fugas de memoria.
  */
 export default function ReadingTutor() {
   const [targetSentence] = useState("The future of spatial learning is powered by artificial intelligence.");
@@ -25,22 +26,34 @@ export default function ReadingTutor() {
 
   // --- GESTIÓN DE HARDWARE (CÁMARA BACKDROP) ---
   useEffect(() => {
-    let stream: MediaStream | null = null;
+    let activeStream: MediaStream | null = null;
+
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
           audio: false
         });
+        activeStream = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
+        console.log(`[SoftIA Hardware] Reading Backdrop activado: ${stream.id}`);
       } catch (err) {
-        console.error("Cámara de fondo no disponible.");
+        console.warn("[SoftIA Hardware] Cámara de fondo no disponible.");
       }
     }
     startCamera();
 
     return () => {
-      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => {
+          track.stop();
+          console.log(`[SoftIA Hardware] Reading track destruido: ${track.kind}`);
+        });
+        activeStream = null;
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
     };
   }, []);
 
