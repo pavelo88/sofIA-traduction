@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -12,7 +11,8 @@ import {
   Star,
   ShieldAlert,
   Mic,
-  MicOff
+  MicOff,
+  Wallet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,23 +23,20 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v2.1.0 - Voice Enabled)
- * Maneja la interacción con Kitten, diagnóstico de sistema y ahora reconocimiento de voz.
+ * Pantalla Principal: Dashboard de SoftIA (v2.2.0 - Toggle Voice & Billing Check)
  */
 export default function Home() {
   const { learningProgress } = useStore();
   const db = useFirestore();
 
-  // --- PERSISTENCIA: HUD DINÁMICO ---
   const { data: progressData } = useDoc(doc(db, 'user_progress', 'demo-user'));
   const currentLevel = progressData?.accuracy_percentage ?? learningProgress;
 
-  // --- ESTADOS DE REACCIÓN INTERACTIVA ---
   const [input, setInput] = useState('');
   const [kittenResponse, setKittenResponse] = useState('¡Hola! Soy Kitten. ¿Listo para nuestra sesión espacial de hoy? 🐱✨ ¡Prrr!');
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [apiErrorType, setApiErrorType] = useState<'403' | 'other' | null>(null);
+  const [apiErrorType, setApiErrorType] = useState<'403' | '429' | 'other' | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   
   const recognitionRef = useRef<any>(null);
@@ -47,34 +44,42 @@ export default function Home() {
   useEffect(() => {
     setIsMounted(true);
     
-    // Configuración inicial de reconocimiento de voz
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      // Mantenemos el micro abierto hasta que el usuario decida pararlo
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'es-ES';
 
       recognition.onresult = (event: any) => {
-        const transcript = Array.from(event.results)
-          .map((result: any) => result[0])
-          .map((result) => result.transcript)
-          .join('');
-        setInput(transcript);
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setInput(prev => prev + finalTranscript);
+        }
       };
 
       recognition.onend = () => {
+        // Solo cambiamos el estado si el sistema lo detiene forzosamente
+        // pero mantenemos la lógica de toggle manual
         setIsRecording(false);
       };
 
       recognition.onerror = (event: any) => {
         console.error('Error de voz:', event.error);
         setIsRecording(false);
-        toast({
-          title: "Señal de voz perdida",
-          description: "Hubo un problema captando tu voz en el vacío.",
-          variant: "destructive"
-        });
+        if (event.error !== 'no-speech') {
+          toast({
+            title: "Señal de voz interrumpida",
+            description: "Hubo un problema captando tu voz. Intenta de nuevo.",
+            variant: "destructive"
+          });
+        }
       };
 
       recognitionRef.current = recognition;
@@ -93,6 +98,7 @@ export default function Home() {
 
     if (isRecording) {
       recognitionRef.current.stop();
+      setIsRecording(false);
     } else {
       setIsRecording(true);
       recognitionRef.current.start();
@@ -101,6 +107,11 @@ export default function Home() {
 
   const handleKittenChat = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Si estamos grabando, detenemos para procesar
+    if (isRecording) {
+      toggleVoice();
+    }
 
     setIsLoading(true);
     setApiErrorType(null);
@@ -132,9 +143,13 @@ export default function Home() {
     } catch (error: any) {
       console.error("Error en chat de Kitten:", error);
       const errorMsg = error.message?.toLowerCase() || "";
-      if (errorMsg.includes('403') || errorMsg.includes('blocked') || errorMsg.includes('forbidden')) {
+      
+      if (errorMsg.includes('403') || errorMsg.includes('blocked')) {
         setApiErrorType('403');
-        setKittenResponse("Mi señal está siendo bloqueada por un escudo de energía. ¡Miau! 😿");
+        setKittenResponse("Mi señal está bloqueada por un escudo de seguridad. 🛡️");
+      } else if (errorMsg.includes('429') || errorMsg.includes('exhausted') || errorMsg.includes('credits')) {
+        setApiErrorType('429');
+        setKittenResponse("¡Miau! Me he quedado sin energía espacial (créditos). Necesito una recarga en AI Studio. 🔋");
       } else {
         setKittenResponse("¡Miau!... algo interfirió con mi señal espacial. Revisa tu conexión cósmica. 🚀");
       }
@@ -152,18 +167,27 @@ export default function Home() {
 
       <header className="relative z-20 w-full max-w-4xl pt-16 px-6 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
         
+        {apiErrorType === '429' && (
+          <Alert variant="destructive" className="mb-6 border-rose-500/50 bg-rose-500/10 backdrop-blur-md animate-in slide-in-from-top-2">
+            <Wallet className="h-5 w-5 text-rose-500" />
+            <AlertTitle className="font-headline uppercase tracking-widest text-xs text-rose-500">Energía Agotada (429) 🔋</AlertTitle>
+            <AlertDescription className="text-xs opacity-90 mt-2 text-white">
+              Tus créditos prepago en Google AI Studio se han agotado. Para continuar:
+              <ul className="list-disc ml-5 mt-2 space-y-1">
+                <li>Ve a <a href="https://aistudio.google.com/app/billing" target="_blank" className="underline font-bold">AI Studio Billing</a>.</li>
+                <li>Verifica tu plan o añade créditos a tu cuenta de prepago.</li>
+                <li>O utiliza una clave de API diferente con cuota disponible.</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {apiErrorType === '403' && (
           <Alert variant="destructive" className="mb-6 border-amber-500/50 bg-amber-500/10 backdrop-blur-md animate-in slide-in-from-top-2">
             <ShieldAlert className="h-5 w-5 text-amber-500" />
-            <AlertTitle className="font-headline uppercase tracking-widest text-xs text-amber-500">Diagnóstico de Seguridad 🛡️</AlertTitle>
+            <AlertTitle className="font-headline uppercase tracking-widest text-xs text-amber-500">Diagnóstico de Seguridad (403) 🛡️</AlertTitle>
             <AlertDescription className="text-xs opacity-90 mt-2 text-white">
-              Si ya habilitaste la API y sigue fallando, revisa las <strong>Restricciones de la Clave de API</strong> en Google Cloud:
-              <ul className="list-disc ml-5 mt-2 space-y-1">
-                <li>Ve a <b>APIs y servicios &gt; Credenciales</b>.</li>
-                <li>Edita tu Clave de API.</li>
-                <li>Asegúrate de que <b>"Generative Language API"</b> esté permitida.</li>
-                <li>O selecciona "Sin restricciones" para pruebas rápidas.</li>
-              </ul>
+              La API está bloqueada. Revisa las <strong>Restricciones de la Clave de API</strong> en Google Cloud Console.
             </AlertDescription>
           </Alert>
         )}
@@ -205,7 +229,7 @@ export default function Home() {
                   className={cn(
                     "h-12 w-12 rounded-2xl squish-effect shrink-0 transition-all duration-300 shadow-lg",
                     isRecording 
-                      ? "bg-rose-500 hover:bg-rose-600 animate-pulse shadow-rose-500/40" 
+                      ? "bg-rose-500 hover:bg-rose-600 animate-pulse shadow-rose-500/60" 
                       : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
                   )}
                 >
