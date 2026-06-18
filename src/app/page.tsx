@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from '@/lib/store';
 import { aiTutorConversation } from '@/ai/flows/ai-tutor-conversation';
 import { 
@@ -10,17 +10,21 @@ import {
   Zap,
   Activity,
   Star,
-  ShieldAlert
+  ShieldAlert,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc } from '@/firebase';
 import { doc, collection, addDoc } from 'firebase/firestore';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v2.0.2 - ServerSync)
- * Maneja la interacción con Kitten y diagnóstico de sistema.
+ * Pantalla Principal: Dashboard de SoftIA (v2.1.0 - Voice Enabled)
+ * Maneja la interacción con Kitten, diagnóstico de sistema y ahora reconocimiento de voz.
  */
 export default function Home() {
   const { learningProgress } = useStore();
@@ -36,10 +40,64 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [apiErrorType, setApiErrorType] = useState<'403' | 'other' | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     setIsMounted(true);
+    
+    // Configuración inicial de reconocimiento de voz
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'es-ES';
+
+      recognition.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0])
+          .map((result) => result.transcript)
+          .join('');
+        setInput(transcript);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Error de voz:', event.error);
+        setIsRecording(false);
+        toast({
+          title: "Señal de voz perdida",
+          description: "Hubo un problema captando tu voz en el vacío.",
+          variant: "destructive"
+        });
+      };
+
+      recognitionRef.current = recognition;
+    }
   }, []);
+
+  const toggleVoice = () => {
+    if (!recognitionRef.current) {
+      toast({
+        title: "Voz no soportada",
+        description: "Tu dispositivo no admite reconocimiento de voz nativo.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+    } else {
+      setIsRecording(true);
+      recognitionRef.current.start();
+    }
+  };
 
   const handleKittenChat = async () => {
     if (!input.trim() || isLoading) return;
@@ -135,17 +193,33 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleKittenChat()}
-                placeholder="Escribe un mensaje espacial a Kitten..."
+                placeholder="Escribe o habla con Kitten..."
                 disabled={isLoading}
                 className="bg-white/5 border-white/10 h-12 rounded-2xl text-sm focus-visible:ring-primary text-white placeholder:text-white/30"
               />
-              <Button 
-                onClick={handleKittenChat}
-                disabled={isLoading || !input.trim()}
-                className="h-12 w-12 rounded-2xl bg-primary hover:bg-primary/80 squish-effect shrink-0 shadow-lg shadow-primary/20"
-              >
-                {isLoading ? <Zap className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 text-white" />}
-              </Button>
+              
+              <div className="flex gap-2">
+                <Button 
+                  onClick={toggleVoice}
+                  disabled={isLoading}
+                  className={cn(
+                    "h-12 w-12 rounded-2xl squish-effect shrink-0 transition-all duration-300 shadow-lg",
+                    isRecording 
+                      ? "bg-rose-500 hover:bg-rose-600 animate-pulse shadow-rose-500/40" 
+                      : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
+                  )}
+                >
+                  {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </Button>
+
+                <Button 
+                  onClick={handleKittenChat}
+                  disabled={isLoading || !input.trim()}
+                  className="h-12 w-12 rounded-2xl bg-primary hover:bg-primary/80 squish-effect shrink-0 shadow-lg shadow-primary/20"
+                >
+                  {isLoading ? <Zap className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 text-white" />}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
