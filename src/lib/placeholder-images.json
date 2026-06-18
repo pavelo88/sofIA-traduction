@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "ar-scene-1",
+      "description": "Señal de tráfico en idioma extranjero",
+      "imageUrl": "https://picsum.photos/seed/ar1/1200/800",
+      "imageHint": "street sign"
+    },
+    {
+      "id": "ar-scene-2",
+      "description": "Menú de restaurante tradicional",
+      "imageUrl": "https://picsum.photos/seed/ar2/1200/800",
+      "imageHint": "restaurant menu"
+    },
+    {
+      "id": "ar-scene-3",
+      "description": "Página de libro técnico",
+      "imageUrl": "https://picsum.photos/seed/ar3/1200/800",
+      "imageHint": "book text"
+    }
+  ]
 }
