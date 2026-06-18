@@ -92,9 +92,9 @@ Si el usuario está pidiendo una evaluación de traducción o ayuda de lectura, 
 De lo contrario, solo proporciona un campo 'response'.
 
 Tu salida DEBE ser un objeto JSON que se ajuste estrictamente al siguiente esquema:
-```json
+\`\`\`json
 {{jsonSchema AITutorConversationOutputSchema}}
-```
+\`\`\`
 `,
 });
 

@@ -1,189 +1,167 @@
+
 "use client";
 
-import { useEffect, useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { useStore } from '@/lib/store';
-import { useThermalManager } from '@/hooks/use-thermal-manager';
-import { Sparkles, Zap, Flame, Target, Star, Brain, ChevronRight, Activity } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
+import { aiTutorConversation } from '@/ai/flows/ai-tutor-conversation';
+import { 
+  Camera, 
+  BookOpen, 
+  Mic, 
+  BarChart3, 
+  Send, 
+  Sparkles,
+  Zap,
+  Activity,
+  Maximize2
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
-// Componente de tarjeta con efecto de inclinación 3D para el dashboard bento
-function TiltCard({ children, className, intensity = 10 }: { children: React.ReactNode, className?: string, intensity?: number }) {
-  const cardRef = useRef<HTMLDivElement>(null);
+export default function Home() {
+  const { learningProgress, thermalTemperature } = useStore();
+  const [input, setInput] = useState('');
+  const [kittenResponse, setKittenResponse] = useState('¡Hola! Soy Kitten. ¿Listo para nuestra sesión espacial de hoy? 🐱✨');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -intensity;
-    const rotateY = ((x - centerX) / centerX) * intensity;
-    
-    cardRef.current.style.setProperty('--rx', `${rotateX}deg`);
-    cardRef.current.style.setProperty('--ry', `${rotateY}deg`);
-  };
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
-  const handleMouseLeave = () => {
-    if (!cardRef.current) return;
-    cardRef.current.style.setProperty('--rx', '0deg');
-    cardRef.current.style.setProperty('--ry', '0deg');
-  };
+  // Función para conectar con Gemini a través de Genkit
+  // Esta función envía el mensaje al flujo 'aiTutorConversation' que ya está configurado
+  // para actuar como un gatito profesor amable.
+  const handleKittenChat = async () => {
+    if (!input.trim() || isLoading) return;
 
-  return (
-    <div 
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      className={cn("tilt-card glass-panel transition-all duration-300 hover:shadow-primary/20 hover:border-primary/30", className)}
-    >
-      {children}
-    </div>
-  );
-}
+    setIsLoading(true);
+    const userMessage = input;
+    setInput('');
 
-export default function Dashboard() {
-  const { learningProgress, isThermalThrottled, thermalTemperature } = useStore();
-  const { isCritical } = useThermalManager();
-
-  return (
-    <main className="min-h-screen p-6 md:p-12 md:pl-32 pb-32 max-w-[1600px] mx-auto">
-      <SidebarNav />
+    try {
+      const result = await aiTutorConversation({
+        message: userMessage,
+        chatHistory: [] // Podríamos persistir el historial aquí si fuera necesario
+      });
       
-      <header className="mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-headline text-primary uppercase tracking-widest">
-            Sesión Activa
+      setKittenResponse(result.response);
+    } catch (error) {
+      setKittenResponse("Miau... algo salió mal en la nube. ¡Inténtalo de nuevo!");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isMounted) return null;
+
+  return (
+    <main className="relative min-h-screen bg-black overflow-hidden flex flex-col items-center">
+      {/* 1. ESTRUCTURA VISUAL (SIMULADOR DE CÁMARA AR) */}
+      <div className="absolute inset-0 z-0">
+        {/* Fondo con degradado profundo y efecto de grano */}
+        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-black to-black" />
+        <div className="absolute inset-0 opacity-20 pointer-events-none" 
+             style={{ backgroundImage: `url('https://picsum.photos/seed/bg-noise/1920/1080')`, backgroundSize: 'cover', mixBlendMode: 'overlay' }} 
+        />
+        {/* Línea de escaneo animada (definida en globals.css) */}
+        <div className="ar-scanner absolute inset-0 opacity-10 pointer-events-none" />
+      </div>
+
+      <SidebarNav />
+
+      {/* HUD SUPERIOR: Kitten Assistant */}
+      <header className="relative z-20 w-full max-w-4xl pt-8 px-6 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
+        <div className="glass-panel p-6 rounded-[2.5rem] w-full flex items-center gap-6 border-white/10 shadow-primary/20 shadow-2xl">
+          {/* Avatar del Gatito */}
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/40 animate-pulse-glow">
+              <span className="text-4xl">🐱</span>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-background flex items-center justify-center" />
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground text-xs">
-            <Activity className="w-3 h-3 text-green-500" /> Latencia JSI: 4.2ms
+
+          {/* Globo de texto y Input */}
+          <div className="flex-1 space-y-3">
+            <div className="text-sm font-medium text-white/90 leading-relaxed italic">
+              "{kittenResponse}"
+            </div>
+            
+            <div className="flex gap-2">
+              <Input 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleKittenChat()}
+                placeholder="Escribe a Kitten..."
+                className="bg-white/5 border-white/10 h-10 rounded-xl text-xs focus-visible:ring-primary"
+              />
+              <Button 
+                onClick={handleKittenChat}
+                disabled={isLoading}
+                size="icon"
+                className="h-10 w-10 rounded-xl bg-primary hover:bg-primary/80 squish-effect"
+              >
+                {isLoading ? <Zap className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-white" />}
+              </Button>
+            </div>
           </div>
         </div>
-        <h1 className="font-headline text-5xl md:text-7xl mb-4 font-bold tracking-tighter">
-          SoftIA <span className="text-primary italic">Studio</span>
-        </h1>
-        <p className="text-muted-foreground text-lg max-w-2xl">
-          Explora la nueva frontera del aprendizaje espacial. Tu asistente <span className="text-white font-medium">Kitten</span> ha optimizado tu ruta de hoy basada en tu progreso on-device.
-        </p>
+
+        {/* Indicadores de Sistema (HUD) */}
+        <div className="flex gap-4 mt-6">
+          <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/60">
+            <Activity className="w-3 h-3 text-green-500" /> JSI: 4.2ms
+          </div>
+          <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/60">
+            <Sparkles className="w-3 h-3 text-primary" /> Core: 2.5
+          </div>
+        </div>
       </header>
 
-      <div className="bento-grid">
-        {/* Tarjeta de Progreso Principal (Grande) */}
-        <TiltCard className="col-span-12 md:col-span-8 h-[350px] p-10 flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary/20 rounded-full blur-[100px] group-hover:bg-primary/30 transition-colors" />
+      {/* 2. PANEL INFERIOR FLOTANTE (BENTO GRID GLASSMORPHISM) */}
+      <footer className="fixed bottom-10 z-20 w-full max-w-4xl px-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 glass-panel bg-black/40 backdrop-blur-3xl rounded-[3rem] border-white/5 shadow-2xl">
           
-          <div>
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h2 className="text-3xl font-headline font-bold mb-2 flex items-center gap-3">
-                  <Brain className="text-primary w-8 h-8" /> Maestría Lingüística
-                </h2>
-                <p className="text-muted-foreground">Nivel actual: Explorador de Sistemas Espaciales</p>
-              </div>
-              <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
-                <Target className="text-secondary w-8 h-8" />
-              </div>
+          <Link href="/lens" className="group">
+            <div className="bg-white/5 p-6 rounded-[2rem] flex flex-col items-center gap-3 transition-all group-hover:bg-primary/20 border border-white/5 group-hover:border-primary/30 squish-effect">
+              <Camera className="w-8 h-8 text-primary" />
+              <span className="text-[10px] font-headline uppercase tracking-widest text-white/60 group-hover:text-white">AR Lens</span>
             </div>
+          </Link>
 
-            <div className="space-y-4 max-w-md">
-              <div className="flex justify-between text-sm font-medium">
-                <span className="text-white/60">Progreso Total</span>
-                <span className="text-primary">{learningProgress}%</span>
-              </div>
-              <Progress value={learningProgress} className="h-4 bg-white/5" />
+          <Link href="/reading" className="group">
+            <div className="bg-white/5 p-6 rounded-[2rem] flex flex-col items-center gap-3 transition-all group-hover:bg-secondary/20 border border-white/5 group-hover:border-secondary/30 squish-effect">
+              <BookOpen className="w-8 h-8 text-secondary" />
+              <span className="text-[10px] font-headline uppercase tracking-widest text-white/60 group-hover:text-white">Lectura</span>
             </div>
-          </div>
+          </Link>
 
-          <div className="flex gap-4 items-center text-sm text-muted-foreground">
-            <div className="flex -space-x-2">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-bold">
-                  {i}
-                </div>
-              ))}
+          <Link href="/chat" className="group">
+            <div className="bg-white/5 p-6 rounded-[2rem] flex flex-col items-center gap-3 transition-all group-hover:bg-primary/20 border border-white/5 group-hover:border-primary/30 squish-effect">
+              <Mic className="w-8 h-8 text-primary" />
+              <span className="text-[10px] font-headline uppercase tracking-widest text-white/60 group-hover:text-white">Voz</span>
             </div>
-            <span>+12 conceptos dominados en la última hora</span>
-          </div>
-        </TiltCard>
+          </Link>
 
-        {/* Monitor Térmico (Pequeño) */}
-        <TiltCard className={cn(
-          "col-span-12 md:col-span-4 p-8 flex flex-col justify-between border-l-4",
-          isCritical ? "border-destructive" : "border-primary"
-        )}>
-          <div>
-            <h3 className="text-xl font-headline font-bold mb-6 flex items-center gap-2">
-              <Flame className={cn("w-6 h-6", isCritical ? "text-destructive" : "text-primary")} /> Estado Térmico
-            </h3>
-            <div className="space-y-6">
-              <div className="flex justify-between items-end">
-                <span className="text-sm text-muted-foreground uppercase tracking-widest">Temperatura</span>
-                <span className={cn("text-4xl font-headline font-bold", isCritical ? "text-destructive" : "text-primary")}>
-                  {thermalTemperature.toFixed(1)}°C
-                </span>
-              </div>
-              <div className="p-4 rounded-xl bg-white/5 space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span>Modo Hardware</span>
-                  <span className="text-white font-medium">{isThermalThrottled ? 'THROTTLED' : 'PERFORMANCE'}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span>Captura</span>
-                  <span className="text-white font-medium">{isThermalThrottled ? '720p / 30fps' : '1080p / 60fps'}</span>
-                </div>
-              </div>
+          <Link href="/" className="group">
+            <div className="bg-white/5 p-6 rounded-[2rem] flex flex-col items-center gap-3 transition-all group-hover:bg-secondary/20 border border-white/5 group-hover:border-secondary/30 squish-effect">
+              <BarChart3 className="w-8 h-8 text-secondary" />
+              <span className="text-[10px] font-headline uppercase tracking-widest text-white/60 group-hover:text-white">Progreso</span>
             </div>
-          </div>
-          {isCritical && (
-            <p className="text-[10px] text-destructive uppercase tracking-widest font-bold animate-pulse mt-4">
-              CRITICAL: Reduciendo carga JSI...
-            </p>
-          )}
-        </TiltCard>
+          </Link>
 
-        {/* Racha Diaria (Pequeño) */}
-        <TiltCard className="col-span-12 md:col-span-4 p-8">
-          <h3 className="text-xl font-headline font-bold mb-4 flex items-center gap-2">
-            <Zap className="text-secondary w-5 h-5" /> Racha Diaria
-          </h3>
-          <div className="flex items-baseline gap-2 mb-6">
-            <span className="text-5xl font-headline font-bold text-white">15</span>
-            <span className="text-muted-foreground">Días</span>
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: 14 }).map((_, i) => (
-              <div key={i} className={cn(
-                "h-2 rounded-full",
-                i < 13 ? "bg-secondary shadow-[0_0_8px_hsla(var(--secondary),0.5)]" : "bg-white/10"
-              )} />
-            ))}
-          </div>
-        </TiltCard>
+        </div>
+      </footer>
 
-        {/* Sugerencia de Kitten (Mediano) */}
-        <TiltCard className="col-span-12 md:col-span-8 p-8 flex items-center gap-8 bg-primary/5 border-primary/20">
-          <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30 relative">
-            <Star className="text-primary w-12 h-12 fill-primary" />
-            <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-              <Sparkles className="text-background w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="font-headline font-bold text-primary">Kitten Assistant</span>
-              <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full uppercase">IA Proactiva</span>
-            </div>
-            <p className="text-white/80 leading-relaxed italic mb-4">
-              "He analizado tus últimas sesiones de lectura. He notado que te detienes un poco más en los verbos irregulares. ¿Te gustaría que los prioricemos en el AR Lens hoy?"
-            </p>
-            <button className="flex items-center gap-2 text-primary text-sm font-bold hover:underline">
-              Aceptar sugerencia <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </TiltCard>
-      </div>
+      {/* Decoración de Esquinas (Crosshairs) */}
+      <div className="fixed top-6 left-6 w-12 h-12 border-t border-l border-white/20 rounded-tl-xl pointer-events-none" />
+      <div className="fixed top-6 right-6 w-12 h-12 border-t border-r border-white/20 rounded-tr-xl pointer-events-none" />
+      <div className="fixed bottom-6 left-6 w-12 h-12 border-b border-l border-white/20 rounded-bl-xl pointer-events-none" />
+      <div className="fixed bottom-6 right-6 w-12 h-12 border-b border-r border-white/20 rounded-br-xl pointer-events-none" />
     </main>
   );
 }
