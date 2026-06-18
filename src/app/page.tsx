@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { useStore } from '@/lib/store';
 // Conexión con la capa de IA de Genkit (utiliza la clave configurada de Gemini en el backend)
@@ -13,7 +14,8 @@ import {
   Send, 
   Sparkles,
   Zap,
-  Activity
+  Activity,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,46 +24,79 @@ import Link from 'next/link';
 export default function Home() {
   const { learningProgress } = useStore();
   
+  // --- REFERENCIAS Y ESTADOS DE HARDWARE (CÁMARA AR) ---
+  // videoRef: Referencia directa al elemento HTML5 video para el stream
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // streamRef: Referencia para almacenar el stream y poder detenerlo al desmontar
+  const streamRef = useRef<MediaStream | null>(null);
+  // cameraError: Captura si el usuario deniega permisos o no hay hardware disponible
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
   // --- ESTADOS DE REACCIÓN INTERACTIVA ---
-  // input: Almacena el texto que el usuario está redactando en tiempo real
   const [input, setInput] = useState('');
-  // kittenResponse: Mensaje actual visible en la burbuja flotante del tutor
   const [kittenResponse, setKittenResponse] = useState('¡Hola! Soy Kitten. ¿Listo para nuestra sesión espacial de hoy? 🐱✨ ¡Prrr!');
-  // isLoading: Estado booleano para controlar las transiciones de carga y el indicador "escribiendo..."
   const [isLoading, setIsLoading] = useState(false);
-  // isMounted: Previene discrepancias de hidratación en entornos Next.js SSR
   const [isMounted, setIsMounted] = useState(false);
 
+  /**
+   * INICIALIZACIÓN DE LA CÁMARA (Lógica AR Lens)
+   * Este efecto solicita acceso a la cámara trasera (environment) para simular AR.
+   */
   useEffect(() => {
     setIsMounted(true);
+
+    async function startCamera() {
+      try {
+        const constraints = {
+          video: { 
+            facingMode: "environment", // Prioriza cámara trasera para experiencia AR
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false // No necesitamos audio para el visor visual
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          streamRef.current = stream;
+        }
+      } catch (err: any) {
+        console.error("Error al acceder a la cámara:", err);
+        setCameraError("No se pudo activar la visión AR. Usando modo de respaldo.");
+      }
+    }
+
+    startCamera();
+
+    // Limpieza al desmontar: Detenemos todas las pistas de la cámara
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
   /**
    * Manejador de eventos que envía la solicitud a la API de Gemini a través de Genkit.
-   * Modifica los estados antes y después de la llamada para asegurar retroalimentación visual continua.
    */
   const handleKittenChat = async () => {
     if (!input.trim() || isLoading) return;
 
-    // Activamos el estado de carga y respaldamos el mensaje del usuario
     setIsLoading(true);
     const userMessage = input;
     setInput('');
 
     try {
-      // Invocamos el flujo con el prompt del sistema actualizado
       const result = await aiTutorConversation({
         message: userMessage,
-        chatHistory: [] // En el futuro se puede conectar con Firestore para persistencia duradera
+        chatHistory: [] 
       });
-      
-      // Actualizamos la interfaz con la respuesta auténtica del modelo de lenguaje
       setKittenResponse(result.response);
     } catch (error) {
-      // Manejo amigable de fallos temporales en la nube
-      setKittenResponse("¡Miau!... algo interfirió con mi señal espacial en la nube. ¡Inténtalo de nuevo, por favor! 🚀");
+      setKittenResponse("¡Miau!... algo interfirió con mi señal espacial en la nube. ¡Inténtalo de nuevo! 🚀");
     } finally {
-      // Concluimos la animación de escritura
       setIsLoading(false);
     }
   };
@@ -71,22 +106,35 @@ export default function Home() {
   return (
     <main className="relative min-h-screen bg-black overflow-hidden flex flex-col items-center">
       
-      {/* --- ESTRUCTURA VISUAL: HUD DE CÁMARA AR SIMULADA --- */}
+      {/* --- CAPA DE FONDO: LIVE CAMERA STREAM O FALLBACK --- */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/20 via-black to-black" />
+        {/* Fallback Gradient: Se muestra siempre de fondo, pero el video se superpone si está activo */}
+        <div className="absolute inset-0 bg-gradient-to-b from-purple-900/40 via-black to-black" />
+        
+        {/* Elemento de Video: El "motor" de la visión AR */}
+        {!cameraError && (
+          <video 
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover z-[-1] opacity-70"
+          />
+        )}
+
+        {/* HUD DECORATIVO: Ruido digital y Scanner para estética Cyberpunk */}
         <div className="absolute inset-0 opacity-20 pointer-events-none" 
              style={{ backgroundImage: `url('https://picsum.photos/seed/bg-noise/1920/1080')`, backgroundSize: 'cover', mixBlendMode: 'overlay' }} 
         />
-        <div className="ar-scanner absolute inset-0 opacity-10 pointer-events-none" />
+        <div className="ar-scanner absolute inset-0 opacity-20 pointer-events-none" />
       </div>
 
       <SidebarNav />
 
-      {/* --- PANEL SUPERIOR FLOTANTE: KITTEN ASSISTANT INTERACTIVO --- */}
+      {/* --- PANEL SUPERIOR: KITTEN ASSISTANT (CONECTADO A GEMINI) --- */}
       <header className="relative z-20 w-full max-w-4xl pt-8 px-6 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
         <div className="glass-panel p-6 rounded-[2.5rem] w-full flex items-center gap-6 border-white/10 shadow-primary/20 shadow-2xl">
           
-          {/* Avatar Animado de Kitten */}
           <div className="relative shrink-0">
             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/40 animate-pulse-glow">
               <span className="text-4xl">🐱</span>
@@ -94,12 +142,11 @@ export default function Home() {
             <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-background flex items-center justify-center" />
           </div>
 
-          {/* Burbuja Dinámica e Input de Texto */}
           <div className="flex-1 space-y-3">
             <div className="text-sm font-medium text-white/90 leading-relaxed italic min-h-[2.5rem] flex items-center">
               {isLoading ? (
                 <span className="flex items-center gap-2 text-primary text-xs font-headline uppercase tracking-widest animate-pulse">
-                  <Sparkles className="w-4 h-4 animate-spin" /> Kitten está pensando en las estrellas...
+                  <Sparkles className="w-4 h-4 animate-spin" /> Kitten está analizando el espacio...
                 </span>
               ) : (
                 `"${kittenResponse}"`
@@ -111,9 +158,9 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleKittenChat()}
-                placeholder="Escribe a Kitten..."
+                placeholder="Pregunta algo a Kitten..."
                 disabled={isLoading}
-                className="bg-white/5 border-white/10 h-10 rounded-xl text-xs focus-visible:ring-primary text-white"
+                className="bg-white/5 border-white/10 h-10 rounded-xl text-xs focus-visible:ring-primary text-white placeholder:text-white/30"
               />
               <Button 
                 onClick={handleKittenChat}
@@ -127,18 +174,23 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Indicadores de Rendimiento Espacial */}
-        <div className="flex gap-4 mt-6">
+        {/* Indicadores de Sistema AR */}
+        <div className="flex flex-wrap justify-center gap-4 mt-6">
           <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/60">
-            <Activity className="w-3 h-3 text-green-500" /> JSI_STREAM: ACTIVE
+            <Activity className="w-3 h-3 text-green-500" /> {cameraError ? "VIDEO_OFF" : "JSI_STREAM: 60FPS"}
           </div>
           <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-[10px] uppercase tracking-widest text-white/60">
-            <Sparkles className="w-3 h-3 text-primary" /> PROG_LOG: {learningProgress}%
+            <Sparkles className="w-3 h-3 text-primary" /> NIVEL: {learningProgress}%
           </div>
+          {cameraError && (
+            <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-[10px] uppercase tracking-widest text-destructive">
+              <AlertCircle className="w-3 h-3" /> MODO_DE_RESPALDO
+            </div>
+          )}
         </div>
       </header>
 
-      {/* --- PANEL INFERIOR FLOTANTE: BENTO GRID --- */}
+      {/* --- PANEL INFERIOR: BENTO GRID NAVIGATION --- */}
       <footer className="fixed bottom-10 z-20 w-full max-w-4xl px-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 glass-panel bg-black/40 backdrop-blur-3xl rounded-[3rem] border-white/5 shadow-2xl">
           
@@ -159,7 +211,7 @@ export default function Home() {
           <Link href="/chat" className="group">
             <div className="bg-white/5 p-6 rounded-[2rem] flex flex-col items-center gap-3 transition-all group-hover:bg-primary/20 border border-white/5 group-hover:border-primary/30 squish-effect">
               <Mic className="w-8 h-8 text-primary" />
-              <span className="text-[10px] font-headline uppercase tracking-widest text-white/60 group-hover:text-white">Voz Chat</span>
+              <span className="text-[10px] font-headline uppercase tracking-widest text-white/60 group-hover:text-white">Conversar</span>
             </div>
           </Link>
 
@@ -173,7 +225,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Retículas HUD Decorativas */}
+      {/* Decoraciones HUD HUD (Esquinas) */}
       <div className="fixed top-6 left-6 w-12 h-12 border-t border-l border-white/20 rounded-tl-xl pointer-events-none" />
       <div className="fixed top-6 right-6 w-12 h-12 border-t border-r border-white/20 rounded-tr-xl pointer-events-none" />
       <div className="fixed bottom-6 left-6 w-12 h-12 border-b border-l border-white/20 rounded-bl-xl pointer-events-none" />
