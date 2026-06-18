@@ -7,7 +7,7 @@ import { BottomNav } from '@/components/layout/bottom-nav';
 
 /**
  * RootLayout: Estructura base de SoftIA.
- * Forzamos una actualización de renderizado para sincronizar variables de entorno (Ref: EnvSync_v2).
+ * Forzamos una actualización de renderizado para sincronizar variables de entorno (Ref: EnvSync_v3).
  */
 
 export const metadata: Metadata = {

@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Configuración de Firebase sincronizada con el entorno.
- * Se asegura de que no existan valores harcoded y se utilicen estrictamente las variables NEXT_PUBLIC.
+ * Forzamos la lectura dinámica de variables NEXT_PUBLIC para evitar fugas de caché.
  */
 
 export const firebaseConfig = {

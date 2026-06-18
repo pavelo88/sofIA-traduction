@@ -18,7 +18,7 @@ import { doc, collection, addDoc } from 'firebase/firestore';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA
+ * Pantalla Principal: Dashboard de SoftIA (v2.0.1 - Force Sync)
  * Maneja la interacción con Kitten y muestra el estado del sistema con diagnóstico de API.
  */
 export default function Home() {
@@ -105,12 +105,12 @@ export default function Home() {
             <ShieldAlert className="h-5 w-5 text-amber-500" />
             <AlertTitle className="font-headline uppercase tracking-widest text-xs text-amber-500">Diagnóstico de Seguridad 🛡️</AlertTitle>
             <AlertDescription className="text-xs opacity-90 mt-2 text-white">
-              Si ya habilitaste la API y sigue fallando, revisa las <strong>Restricciones de la Clave de API</strong>:
+              Si ya habilitaste la API y sigue fallando, revisa las <strong>Restricciones de la Clave de API</strong> en Google Cloud:
               <ul className="list-disc ml-5 mt-2 space-y-1">
-                <li>Ve a <b>APIs y servicios &gt; Credenciales</b> en Google Cloud.</li>
+                <li>Ve a <b>APIs y servicios &gt; Credenciales</b>.</li>
                 <li>Edita tu Clave de API.</li>
-                <li>Asegúrate de que <b>"Generative Language API"</b> esté permitida en la lista de restricciones de API.</li>
-                <li>O selecciona "Sin restricciones" temporalmente para probar.</li>
+                <li>Asegúrate de que <b>"Generative Language API"</b> esté permitida.</li>
+                <li>O selecciona "Sin restricciones" para pruebas rápidas.</li>
               </ul>
             </AlertDescription>
           </Alert>
