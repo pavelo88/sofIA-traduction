@@ -1,43 +1,119 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
-import { aiTutorConversation } from '@/ai/flows/ai-tutor-conversation';
-import { BookOpen, Mic, RefreshCw, Star, Info, CheckCircle2 } from 'lucide-react';
+import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
+import { Mic, RefreshCcw, Star, CheckCircle2, XCircle, Zap, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useFirestore } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
+/**
+ * ReadingTutor: Sistema de evaluación de pronunciación con visión AR de fondo.
+ */
 export default function ReadingTutor() {
-  const [text, setText] = useState('');
+  // --- ESTADOS DE LA FRASE Y EVALUACIÓN ---
+  const [targetSentence] = useState("The future of spatial learning is powered by artificial intelligence.");
+  const [transcription, setTranscription] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [feedback, setFeedback] = useState<{ evaluation?: string; suggestion?: string } | null>(null);
+  const [evalResult, setEvalResult] = useState<PronunciationEvalOutput | null>(null);
 
-  const handleEvaluate = async () => {
-    if (!text.trim()) return;
+  // --- REFERENCIAS DE CÁMARA (AR Background) ---
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const db = useFirestore();
+
+  // --- LÓGICA DE CÁMARA (REUTILIZADA DEL HOME) ---
+  useEffect(() => {
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false
+        });
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (err) {
+        console.error("No se pudo activar la cámara para el fondo AR.");
+      }
+    }
+    startCamera();
+  }, []);
+
+  // --- RECONOCIMIENTO DE VOZ (Web Speech API) ---
+  const startSpeechRecognition = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({
+        title: "Navegador no compatible",
+        description: "Tu navegador no soporta el reconocimiento de voz nativo.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+      setTranscription("");
+      setEvalResult(null);
+    };
+
+    recognition.onresult = (event: any) => {
+      const current = event.resultIndex;
+      const transcript = event.results[current][0].transcript;
+      setTranscription(transcript);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      if (transcription) handleEvaluation();
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error("Speech Recognition Error", event.error);
+      setIsRecording(false);
+    };
+
+    recognition.start();
+  };
+
+  /**
+   * Envía la transcripción a Gemini y actualiza Firestore.
+   */
+  const handleEvaluation = async () => {
+    if (!transcription || isEvaluating) return;
     setIsEvaluating(true);
-    setFeedback(null);
 
     try {
-      const response = await aiTutorConversation({
-        message: `Por favor, evalúa mi lectura o escritura del siguiente texto: "${text}"`,
-        chatHistory: []
+      // 1. Llamada a la IA de Evaluación
+      const result = await evaluatePronunciation({
+        targetSentence,
+        transcription
+      });
+      setEvalResult(result);
+
+      // 2. Persistencia: Actualizar progreso del usuario en tiempo real
+      await setDoc(doc(db, 'user_progress', 'demo-user'), {
+        accuracy_percentage: result.accuracy,
+        last_grade: result.grade,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+
+      toast({
+        title: `¡Sesión Terminada! Nota: ${result.grade}`,
+        description: `Has alcanzado un ${result.accuracy}% de precisión.`,
       });
 
-      setFeedback({
-        evaluation: response.evaluation,
-        suggestion: response.suggestion
-      });
-      
-      toast({
-        title: "Evaluación Completa",
-        description: "Kitten ha terminado de analizar tu texto.",
-      });
     } catch (error) {
+      console.error(error);
       toast({
-        title: "Error de IA",
-        description: "No se pudo conectar con Kitten. Intenta de nuevo.",
+        title: "Error en la evaluación",
+        description: "Kitten no pudo analizar tu pronunciación.",
         variant: "destructive"
       });
     } finally {
@@ -46,100 +122,124 @@ export default function ReadingTutor() {
   };
 
   return (
-    <main className="min-h-screen p-6 md:pl-32 pb-32 max-w-6xl mx-auto flex flex-col">
+    <main className="relative min-h-screen bg-black overflow-hidden flex flex-col items-center justify-center p-6 md:pl-32">
+      
+      {/* Background AR Feed */}
+      <video 
+        ref={videoRef}
+        autoPlay 
+        playsInline 
+        muted 
+        className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 grayscale-[0.5]"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 z-0" />
+
       <SidebarNav />
 
-      <header className="mb-10 animate-in fade-in slide-in-from-left-4 duration-500">
-        <div className="flex items-center gap-4 mb-2">
-          <div className="w-12 h-12 rounded-2xl bg-secondary/20 flex items-center justify-center">
-            <BookOpen className="text-secondary w-6 h-6" />
+      {/* Contenedor Principal Lector */}
+      <div className="relative z-10 w-full max-w-3xl animate-in zoom-in-95 duration-700">
+        
+        <header className="mb-8 text-center">
+          <div className="inline-flex items-center gap-3 glass-panel px-6 py-2 rounded-full border-primary/20 mb-4">
+            <Activity className="w-4 h-4 text-primary animate-pulse" />
+            <span className="font-headline text-[10px] tracking-[0.2em] uppercase text-white/60">Tutor de Lectura Proactivo</span>
           </div>
-          <h1 className="font-headline text-4xl font-bold tracking-tight">Reading <span className="text-secondary">Tutor</span></h1>
-        </div>
-        <p className="text-muted-foreground">Pega un texto o escribe lo que has practicado para recibir feedback instantáneo de SoftIA.</p>
-      </header>
+          <h1 className="text-4xl md:text-5xl font-headline font-bold text-white tracking-tighter">
+            Práctica de <span className="text-primary">Pronunciación</span>
+          </h1>
+        </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-1">
-        {/* Panel de Entrada */}
-        <section className="space-y-6 flex flex-col">
-          <div className="glass-panel p-8 rounded-[2rem] border-white/5 flex-1 flex flex-col gap-6">
-            <div className="flex justify-between items-center">
-              <label className="text-sm font-headline uppercase tracking-widest text-white/60">Tu Práctica</label>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-white">
-                  <Mic className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground hover:text-white" onClick={() => setText('')}>
-                  <RefreshCw className="w-4 h-4" />
-                </Button>
-              </div>
+        {/* Card de Lectura Glassmorphism */}
+        <div className="glass-panel p-10 rounded-[3rem] border-white/5 shadow-2xl space-y-8 relative overflow-hidden">
+          
+          {/* Decoración de Grado si existe */}
+          {evalResult && (
+            <div className="absolute top-6 right-6 w-16 h-16 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center animate-bounce">
+              <span className="text-2xl font-headline font-black text-primary">{evalResult.grade}</span>
             </div>
-            
-            <Textarea 
-              placeholder="Escribe aquí el texto que quieres que Kitten evalúe..."
-              className="flex-1 bg-transparent border-none focus-visible:ring-0 text-xl font-medium resize-none placeholder:text-white/10"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
+          )}
 
-            <Button 
-              onClick={handleEvaluate} 
-              disabled={isEvaluating || !text.trim()}
-              className="h-16 rounded-2xl bg-primary hover:bg-primary/80 squish-effect font-headline text-lg"
-            >
-              {isEvaluating ? (
-                <div className="flex items-center gap-2">
-                  <RefreshCw className="w-5 h-5 animate-spin" /> Analizando...
+          <div className="space-y-4">
+            <h3 className="text-xs font-headline uppercase tracking-widest text-white/30">Frase Objetivo (Inglés)</h3>
+            <div className="text-2xl md:text-3xl leading-snug font-medium text-white/90">
+              {evalResult ? (
+                <div className="flex flex-wrap gap-2">
+                  {evalResult.words.map((w, i) => (
+                    <span 
+                      key={i} 
+                      className={cn(
+                        "transition-colors duration-500",
+                        w.correct ? "text-emerald-400" : "text-rose-400 font-bold underline decoration-rose-500/30"
+                      )}
+                    >
+                      {w.word}
+                    </span>
+                  ))}
                 </div>
               ) : (
-                "Enviar a Kitten"
+                <p>{targetSentence}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-white/5">
+            <h3 className="text-xs font-headline uppercase tracking-widest text-white/30">Tu Transcripción</h3>
+            <p className={cn(
+              "text-lg italic min-h-[3rem]",
+              isRecording ? "text-primary animate-pulse" : "text-white/60"
+            )}>
+              {transcription || (isRecording ? "Escuchando..." : "Presiona el botón para empezar a hablar...")}
+            </p>
+          </div>
+
+          {/* Controles */}
+          <div className="flex justify-center pt-6">
+            <Button 
+              onClick={startSpeechRecognition}
+              disabled={isRecording || isEvaluating}
+              className={cn(
+                "h-24 w-24 rounded-full transition-all duration-500 shadow-2xl squish-effect group",
+                isRecording 
+                  ? "bg-rose-500 hover:bg-rose-600 scale-110 shadow-rose-500/40" 
+                  : "bg-primary hover:bg-primary/80 shadow-primary/40"
+              )}
+            >
+              {isEvaluating ? (
+                <RefreshCcw className="w-8 h-8 text-white animate-spin" />
+              ) : (
+                <Mic className={cn("w-8 h-8 text-white", isRecording && "animate-pulse")} />
               )}
             </Button>
           </div>
-        </section>
+        </div>
 
-        {/* Panel de Feedback */}
-        <section className="space-y-6 flex flex-col">
-          <div className="glass-panel p-8 rounded-[2rem] border-white/5 bg-white/[0.02] flex-1 flex flex-col">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <Star className="text-primary w-5 h-5 fill-primary" />
-              </div>
-              <h3 className="font-headline text-xl">Feedback de IA</h3>
+        {/* HUD de progreso rápido */}
+        <div className="mt-8 flex justify-center gap-4">
+          <div className="glass-panel px-6 py-3 rounded-2xl flex items-center gap-3">
+            <Star className="w-5 h-5 text-primary fill-primary" />
+            <div className="text-left">
+              <p className="text-[10px] text-white/40 uppercase font-headline">Precisión Media</p>
+              <p className="text-xl font-headline font-bold text-white">{evalResult?.accuracy ?? "0"}%</p>
             </div>
-
-            {feedback ? (
-              <ScrollArea className="flex-1 pr-4">
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-primary">
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span className="text-xs font-headline uppercase tracking-widest font-bold">Evaluación Detallada</span>
-                    </div>
-                    <p className="text-white/80 leading-relaxed text-lg bg-primary/5 p-6 rounded-2xl border border-primary/10">
-                      {feedback.evaluation}
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-secondary">
-                      <Info className="w-5 h-5" />
-                      <span className="text-xs font-headline uppercase tracking-widest font-bold">Sugerencia Proactiva</span>
-                    </div>
-                    <p className="text-muted-foreground italic leading-relaxed bg-white/5 p-6 rounded-2xl border border-white/5">
-                      {feedback.suggestion}
-                    </p>
-                  </div>
-                </div>
-              </ScrollArea>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center opacity-30">
-                <BookOpen className="w-16 h-16 mb-4" />
-                <p className="max-w-[200px]">Envía un texto para comenzar tu evaluación guiada.</p>
-              </div>
-            )}
           </div>
-        </section>
+          {evalResult && (
+            <div className="glass-panel px-6 py-3 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              <div className="text-left">
+                <p className="text-[10px] text-white/40 uppercase font-headline">Estado</p>
+                <p className="text-xl font-headline font-bold text-emerald-400">¡Superado!</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Decoraciones HUD */}
+      <div className="fixed top-8 left-1/2 -translate-x-1/2 md:left-auto md:right-8 md:translate-x-0 z-20">
+        <div className="glass-panel px-4 py-2 rounded-full border-white/10 flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+          <span className="text-[10px] font-headline text-white/60 tracking-widest uppercase">AUDIO_SYNC: ACTIVE</span>
+        </div>
       </div>
     </main>
   );
