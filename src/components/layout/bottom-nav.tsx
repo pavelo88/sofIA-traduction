@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { ProfileModal } from '@/components/ProfileModal';
 
 /**
- * @summary Navegación inferior estilo Bento Grid con Glassmorphism 2.0.
+ * @summary Navegación inferior estilo Bento Grid con Selector de Idiomas habilitado.
  */
 const navItems = [
   { name: 'Inicio', href: '/', icon: Home },
@@ -49,11 +49,17 @@ export function BottomNav() {
           );
         })}
 
-        <div className="h-8 w-px bg-white/10 mx-2" />
+        {/* Separador visual para el área de perfil */}
+        <div className="h-8 w-px bg-white/10 mx-2 shrink-0" />
 
+        {/* Selector de Idiomas / Perfil */}
         <ProfileModal>
-          <button className="p-3 rounded-full text-muted-foreground hover:text-primary transition-colors squish-effect">
+          <button 
+            title="Ajustes de Idioma"
+            className="p-3 rounded-full text-muted-foreground hover:text-primary transition-colors squish-effect flex flex-col items-center justify-center"
+          >
             <User className="w-5 h-5" />
+            <span className="text-[9px] font-headline uppercase tracking-widest mt-1 opacity-60">Perfil</span>
           </button>
         </ProfileModal>
       </div>

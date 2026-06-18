@@ -23,7 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v3.1.0 - Corrección de Estado de Voz)
+ * Pantalla Principal: Dashboard de SoftIA (v3.2.0 - Voz Directa y Fluida)
  */
 export default function Home() {
   const { learningProgress, nativeLanguage, targetLanguage } = useStore();
@@ -40,12 +40,7 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   
   const recognitionRef = useRef<any>(null);
-  const inputRef = useRef(input);
-
-  // Mantener inputRef actualizado para usarlo en callbacks de SpeechRecognition
-  useEffect(() => {
-    inputRef.current = input;
-  }, [input]);
+  const transcriptRef = useRef('');
 
   const speak = (text: string) => {
     if (!window.speechSynthesis) return;
@@ -58,12 +53,12 @@ export default function Home() {
   };
 
   const handleKittenChat = useCallback(async (textToSubmit?: string) => {
-    const finalInput = textToSubmit || inputRef.current;
+    const finalInput = textToSubmit || input;
     if (!finalInput.trim() || isLoading) return;
 
     setIsLoading(true);
     setApiErrorType(null);
-    setInput('');
+    if (!textToSubmit) setInput(''); // Solo limpiar si fue manual
 
     try {
       addDoc(collection(db, 'chat_history'), {
@@ -101,7 +96,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [db, isLoading, nativeLanguage, targetLanguage]);
+  }, [db, isLoading, nativeLanguage, targetLanguage, input]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -114,6 +109,7 @@ export default function Home() {
 
       recognition.onstart = () => {
         setIsRecording(true);
+        transcriptRef.current = '';
       };
 
       recognition.onresult = (event: any) => {
@@ -124,14 +120,15 @@ export default function Home() {
           }
         }
         if (finalTranscript) {
-          setInput(prev => prev + finalTranscript);
+          transcriptRef.current += finalTranscript;
         }
       };
 
       recognition.onend = () => {
-        // Enviar automáticamente si el usuario terminó de hablar
-        if (inputRef.current.trim()) {
-          handleKittenChat();
+        // Enviar automáticamente si hubo captura de voz, sin llenar la caja de texto
+        if (transcriptRef.current.trim()) {
+          handleKittenChat(transcriptRef.current);
+          transcriptRef.current = '';
         }
         setIsRecording(false);
       };
@@ -160,7 +157,6 @@ export default function Home() {
         recognitionRef.current.start();
       } catch (err) {
         console.error("Fallo al iniciar el reconocimiento:", err);
-        // Si ya estaba iniciado pero el estado estaba desincronizado, forzamos el estado
         setIsRecording(true);
       }
     }
@@ -186,15 +182,7 @@ export default function Home() {
             <ShieldAlert className="h-5 w-5 text-rose-500" />
             <AlertTitle className="font-headline uppercase tracking-widest text-xs">Acceso Denegado (403)</AlertTitle>
             <AlertDescription className="text-xs opacity-80 mt-2">
-              Kitten no tiene permiso para acceder a la inteligencia espacial. 
-              <br />
-              Si ya habilitaste la API y sigue fallando, revisa las <strong>Restricciones de la Clave de API</strong>:
-              <ul className="list-disc ml-5 mt-2 space-y-1">
-                <li>Ve a <b>APIs y servicios &gt; Credenciales</b> en Google Cloud.</li>
-                <li>Edita tu Clave de API.</li>
-                <li>Asegúrate de que <b>"Generative Language API"</b> esté permitida en la lista de restricciones de API.</li>
-                <li>O selecciona "Sin restricciones" temporalmente para probar.</li>
-              </ul>
+              Kitten no tiene permiso para acceder a la inteligencia espacial. Revisa las restricciones de tu clave de API en Google Cloud.
             </AlertDescription>
           </Alert>
         )}
@@ -223,7 +211,7 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleKittenChat()}
-                placeholder={`Hablemos en ${targetLanguage}...`}
+                placeholder={isRecording ? "Kitten te escucha..." : `Escribe algo en ${targetLanguage}...`}
                 disabled={isLoading}
                 className="bg-white/5 border-white/10 h-12 rounded-2xl text-sm focus-visible:ring-primary text-white"
               />
