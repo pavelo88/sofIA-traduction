@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Camera, BookOpen, Mic2, User } from 'lucide-react';
@@ -8,6 +9,7 @@ import { ProfileModal } from '@/components/ProfileModal';
 
 /**
  * @summary Navegación inferior estilo Bento Grid con Selector de Idiomas habilitado.
+ * Implementa un guardián de montaje para evitar errores de hidratación en Next.js.
  */
 const navItems = [
   { name: 'Inicio', href: '/', icon: Home },
@@ -17,7 +19,21 @@ const navItems = [
 ];
 
 export function BottomNav() {
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+
+  // Sincronización de montaje para evitar discrepancias de SSR/CSR
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Durante el renderizado del servidor o el primer ciclo del cliente, 
+  // devolvemos un contenedor vacío con las mismas dimensiones para preservar el layout.
+  if (!mounted) {
+    return (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg h-16 pointer-events-none" />
+    );
+  }
 
   return (
     <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-lg">
@@ -55,6 +71,7 @@ export function BottomNav() {
         {/* Selector de Idiomas / Perfil */}
         <ProfileModal>
           <button 
+            type="button"
             title="Ajustes de Idioma"
             className="p-3 rounded-full text-muted-foreground hover:text-primary transition-colors squish-effect flex flex-col items-center justify-center"
           >
