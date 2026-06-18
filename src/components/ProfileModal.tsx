@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,6 +10,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -35,7 +37,7 @@ export function ProfileModal({ children }: { children: React.ReactNode }) {
     userVoiceGender, partnerVoiceGender, setUserVoiceGender, setPartnerVoiceGender
   } = useStore();
   
-  const userDocRef = user ? doc(db, 'users', user.uid) : doc(db, 'users', 'demo-user');
+  const userDocRef = user ? doc(db, 'users', user.uid) : null;
   const { data: userData } = useDoc(userDocRef);
 
   useEffect(() => {
@@ -48,10 +50,12 @@ export function ProfileModal({ children }: { children: React.ReactNode }) {
   }, [userData, setNativeLanguage, setTargetLanguage, setUserVoiceGender, setPartnerVoiceGender]);
 
   const handleUpdate = async (field: string, value: string) => {
-    setDoc(userDocRef, {
-      [field]: value,
-      updated_at: new Date().toISOString()
-    }, { merge: true });
+    if (userDocRef) {
+      setDoc(userDocRef, {
+        [field]: value,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    }
   };
 
   return (
@@ -64,6 +68,9 @@ export function ProfileModal({ children }: { children: React.ReactNode }) {
           <DialogTitle className="font-headline text-2xl flex items-center gap-3">
             <Settings2 className="text-primary" /> Perfil Espacial
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Configura tus preferencias de idioma y voz para la experiencia SoftIA.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">

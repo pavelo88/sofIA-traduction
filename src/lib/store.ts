@@ -1,8 +1,9 @@
+
 import { create } from 'zustand';
 
 /**
  * @interface AppState
- * Define el estado global de la aplicación siguiendo los requerimientos del MVP.
+ * Estado global con persistencia híbrida (Firebase/LocalStorage).
  */
 interface AppState {
   isThermalThrottled: boolean;
@@ -27,16 +28,22 @@ interface AppState {
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
 }
 
+// Carga inicial de LocalStorage para modo invitado
+const getInitialValue = (key: string, fallback: string) => {
+  if (typeof window === 'undefined') return fallback;
+  return localStorage.getItem(key) || fallback;
+};
+
 export const useStore = create<AppState>((set) => ({
   isThermalThrottled: false,
   thermalTemperature: 38,
   cameraResolution: '1080p',
   cameraFPS: 60,
   learningProgress: 45,
-  nativeLanguage: 'Español',
-  targetLanguage: 'Inglés',
-  userVoiceGender: 'masculino',
-  partnerVoiceGender: 'femenino',
+  nativeLanguage: getInitialValue('softia_native_lang', 'Español'),
+  targetLanguage: getInitialValue('softia_target_lang', 'Inglés'),
+  userVoiceGender: getInitialValue('softia_user_gender', 'masculino') as any,
+  partnerVoiceGender: getInitialValue('softia_partner_gender', 'femenino') as any,
   lastTranslation: null,
 
   setThermalTemperature: (temp) => set((state) => {
@@ -57,8 +64,20 @@ export const useStore = create<AppState>((set) => ({
     learningProgress: Math.min(100, state.learningProgress + amount)
   })),
 
-  setNativeLanguage: (lang) => set({ nativeLanguage: lang }),
-  setTargetLanguage: (lang) => set({ targetLanguage: lang }),
-  setUserVoiceGender: (gender) => set({ userVoiceGender: gender }),
-  setPartnerVoiceGender: (gender) => set({ partnerVoiceGender: gender }),
+  setNativeLanguage: (lang) => {
+    localStorage.setItem('softia_native_lang', lang);
+    set({ nativeLanguage: lang });
+  },
+  setTargetLanguage: (lang) => {
+    localStorage.setItem('softia_target_lang', lang);
+    set({ targetLanguage: lang });
+  },
+  setUserVoiceGender: (gender) => {
+    localStorage.setItem('softia_user_gender', gender);
+    set({ userVoiceGender: gender });
+  },
+  setPartnerVoiceGender: (gender) => {
+    localStorage.setItem('softia_partner_gender', gender);
+    set({ partnerVoiceGender: gender });
+  },
 }));
