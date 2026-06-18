@@ -2,135 +2,153 @@
 
 import { useState, useRef } from 'react';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
-import { arTextTranslation } from '@/ai/flows/ar-text-translation';
-import { Camera, Upload, RefreshCcw, Languages, AlertCircle } from 'lucide-react';
+import { arTextTranslation, type ARTextTranslationOutput } from '@/ai/flows/ar-text-translation';
+import { Camera, Upload, RefreshCcw, Languages, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useStore } from '@/lib/store';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
+import Image from 'next/image';
 
+/**
+ * Pantalla ARLens: Simulador de visión espacial con Gemini Vision.
+ */
 export default function ARLens() {
   const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState<{ original: string; translated: string } | null>(null);
-  const [targetLang, setTargetLang] = useState('Español');
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [detections, setDetections] = useState<ARTextTranslationOutput['detections']>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { updateTranslation, incrementProgress } = useStore();
+  const db = useFirestore();
 
+  /**
+   * Procesa la imagen subida, llama a Gemini Vision y guarda en Firestore.
+   */
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessing(true);
-    setResult(null);
+    setDetections([]);
 
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        
-        // Simulación de llamada al flujo de Genkit
-        const translation = await arTextTranslation({
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      setCapturedImage(base64String);
+
+      try {
+        // 1. Llamada a la IA (OCR Espacial)
+        const result = await arTextTranslation({
           photoDataUri: base64String,
-          targetLanguage: targetLang
+          targetLanguage: 'Español'
         });
 
-        setResult(translation);
-        updateTranslation(translation.originalText, translation.translatedText);
-        incrementProgress(5);
+        setDetections(result.detections);
+
+        // 2. Persistencia: Guardar el hallazgo en Firestore
+        if (result.detections.length > 0) {
+          addDoc(collection(db, 'chat_history'), {
+            role: 'model',
+            content: `He detectado y traducido ${result.detections.length} textos en tu entorno. ¡El mundo ahora es más claro! 🐱✨`,
+            timestamp: new Date().toISOString(),
+            user_email: 'demo@softia.com',
+            metadata: { type: 'ar_detection', count: result.detections.length }
+          });
+        }
+
+      } catch (error) {
+        console.error(error);
+        toast({
+          title: "Error de Escaneo",
+          description: "Kitten no pudo procesar la imagen espacial. Revisa tu conexión.",
+          variant: "destructive"
+        });
+      } finally {
         setIsProcessing(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Error de IA",
-        description: "No se pudo procesar la imagen. Verifica tu conexión.",
-        variant: "destructive"
-      });
-      setIsProcessing(false);
-    }
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
-    <main className="min-h-screen bg-background relative flex flex-col items-center justify-center p-6 md:pl-32">
+    <main className="min-h-screen bg-black flex flex-col items-center justify-center p-6 md:pl-32">
       <SidebarNav />
 
-      {/* AR Viewport Simulator */}
-      <div className="w-full max-w-4xl aspect-[16/9] glass-panel rounded-3xl relative overflow-hidden flex flex-col items-center justify-center border-white/5 shadow-2xl">
-        <div className="scanline" />
+      {/* Viewport AR */}
+      <div className="w-full max-w-5xl aspect-[16/9] glass-panel rounded-[3rem] relative overflow-hidden border-white/5 shadow-2xl">
         
-        {!result && !isProcessing && (
-          <div className="text-center space-y-6 z-20">
-            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto border border-primary/20 animate-pulse-glow">
-              <Camera className="w-12 h-12 text-primary" />
+        {/* Fondo: Imagen capturada o placeholder */}
+        <div className="absolute inset-0 z-0 bg-neutral-900">
+          {capturedImage ? (
+            <img src={capturedImage} alt="AR Viewport" className="w-full h-full object-cover opacity-80" />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-white/20">
+              <Camera className="w-20 h-20 mb-4 animate-pulse" />
+              <p className="font-headline tracking-widest uppercase text-xs">Waiting for spatial input...</p>
             </div>
-            <div>
-              <h2 className="font-headline text-2xl mb-2 text-white">AR Vision Lens</h2>
-              <p className="text-muted-foreground max-w-xs mx-auto">
-                Sube una imagen o activa la cámara para traducir texto en tiempo real.
-              </p>
-            </div>
-            
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={handleFileUpload} 
-            />
-            
-            <div className="flex gap-4 justify-center">
-              <Button 
-                onClick={() => fileInputRef.current?.click()}
-                className="glass-button h-12 px-8 rounded-2xl flex items-center gap-2 text-white"
-              >
-                <Upload className="w-4 h-4" /> Subir Prueba
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {isProcessing && (
-          <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
-            <RefreshCcw className="w-12 h-12 text-primary animate-spin mx-auto" />
-            <p className="font-headline text-primary">Procesando OCR & Gemini Cloud...</p>
-          </div>
-        )}
+        {/* Capa de Escaneo (Animación) */}
+        {isProcessing && <div className="ar-scanner absolute inset-0 z-10 pointer-events-none" />}
 
-        {result && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm p-12 flex flex-col justify-center items-center z-30 animate-in slide-in-from-bottom-4 duration-500">
-            <div className="w-full max-w-2xl space-y-8">
-              <div className="space-y-2">
-                <span className="text-xs font-headline uppercase tracking-widest text-primary/80">Original</span>
-                <div className="glass-panel p-6 rounded-2xl border-white/10 text-xl text-white/60 italic">
-                  "{result.originalText}"
-                </div>
+        {/* HUD: Detecciones Espaciales */}
+        {!isProcessing && detections.map((det, index) => (
+          <div 
+            key={index}
+            className="absolute z-20 animate-in fade-in zoom-in duration-500"
+            style={{ left: `${det.x}%`, top: `${det.y}%` }}
+          >
+            <div className="group relative -translate-x-1/2 -translate-y-1/2">
+              <div className="bg-primary/30 backdrop-blur-md border border-primary/50 px-4 py-2 rounded-full shadow-2xl shadow-primary/40 flex items-center gap-2 cursor-help transition-transform hover:scale-110">
+                <Sparkles className="w-3 h-3 text-primary animate-pulse" />
+                <span className="text-white text-xs font-headline font-bold uppercase">{det.translatedText}</span>
               </div>
-
-              <div className="space-y-2">
-                <span className="text-xs font-headline uppercase tracking-widest text-secondary">Traducción ({targetLang})</span>
-                <div className="glass-panel p-8 rounded-2xl border-primary/30 bg-primary/10 text-2xl font-headline text-white shadow-primary/20 shadow-2xl">
-                  {result.translatedText}
-                </div>
+              
+              {/* Tooltip con texto original al hacer hover */}
+              <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded text-[10px] text-white/60 whitespace-nowrap">
+                Original: {det.originalText}
               </div>
-
-              <Button 
-                onClick={() => setResult(null)}
-                variant="ghost" 
-                className="mx-auto flex items-center gap-2 text-muted-foreground hover:text-white"
-              >
-                <RefreshCcw className="w-4 h-4" /> Nueva Captura
-              </Button>
             </div>
           </div>
-        )}
+        ))}
 
-        {/* HUD Elements */}
-        <div className="absolute top-6 left-6 flex items-center gap-4 z-40">
-          <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-xs border-white/5">
-            <div className="w-2 h-2 rounded-full bg-green-500" /> SYSTEM_ONLINE
+        {/* Controles de Interfaz */}
+        <div className="absolute inset-x-0 bottom-8 flex justify-center gap-4 z-30">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept="image/*" 
+            onChange={handleFileUpload} 
+          />
+          
+          <Button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className="h-16 px-8 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-xl text-white font-headline gap-3 squish-effect"
+          >
+            {isProcessing ? <RefreshCcw className="animate-spin w-5 h-5" /> : <Upload className="w-5 h-5" />}
+            {isProcessing ? "ANALIZANDO ENTORNO..." : "CAPTURAR REALIDAD"}
+          </Button>
+
+          {capturedImage && !isProcessing && (
+            <Button 
+              onClick={() => { setCapturedImage(null); setDetections([]); }}
+              variant="ghost"
+              className="h-16 w-16 rounded-2xl bg-black/40 text-white hover:bg-black/60 border border-white/5"
+            >
+              <RefreshCcw className="w-5 h-5" />
+            </Button>
+          )}
+        </div>
+
+        {/* Elementos Decorativos HUD */}
+        <div className="absolute top-8 left-8 z-30 flex items-center gap-4">
+          <div className="glass-panel px-4 py-2 rounded-full text-[10px] text-primary font-headline tracking-tighter border-primary/20">
+            AI_VISION_MODULE: ACTIVE
           </div>
-          <div className="glass-panel px-4 py-2 rounded-full flex items-center gap-2 text-xs border-white/5">
-            <Languages className="w-3 h-3 text-primary" /> {targetLang}
+          <div className="glass-panel px-4 py-2 rounded-full text-[10px] text-white/40 font-headline tracking-tighter">
+            LATENCY: 142MS
           </div>
         </div>
       </div>
