@@ -1,9 +1,10 @@
+
 import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
 
 /**
- * @fileOverview Configuración central de Genkit (Servidor).
- * Se ha forzado la lectura de variables de entorno para resolver errores de configuración.
+ * @fileOverview Configuración de Genkit (Servidor).
+ * Prioriza GOOGLE_GENAI_API_KEY para la comunicación con Gemini.
  */
 
 const apiKey = process.env.GOOGLE_GENAI_API_KEY || 

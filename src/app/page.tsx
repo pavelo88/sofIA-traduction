@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -18,8 +19,8 @@ import { doc, collection, addDoc } from 'firebase/firestore';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v2.0.1 - Force Sync)
- * Maneja la interacción con Kitten y muestra el estado del sistema con diagnóstico de API.
+ * Pantalla Principal: Dashboard de SoftIA (v2.0.2 - ServerSync)
+ * Maneja la interacción con Kitten y diagnóstico de sistema.
  */
 export default function Home() {
   const { learningProgress } = useStore();
@@ -40,9 +41,6 @@ export default function Home() {
     setIsMounted(true);
   }, []);
 
-  /**
-   * Manejador de eventos que envía la solicitud a Gemini y guarda en Firestore.
-   */
   const handleKittenChat = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -52,7 +50,6 @@ export default function Home() {
     setInput('');
 
     try {
-      // 1. Guardar mensaje del usuario en Firestore (Optimista)
       addDoc(collection(db, 'chat_history'), {
         role: 'user',
         content: userMessage,
@@ -60,7 +57,6 @@ export default function Home() {
         user_email: 'demo@softia.com'
       });
 
-      // 2. Llamada a la IA de Kitten
       const result = await aiTutorConversation({
         message: userMessage,
         chatHistory: [] 
@@ -68,7 +64,6 @@ export default function Home() {
       
       setKittenResponse(result.response);
 
-      // 3. Guardar respuesta de Kitten
       addDoc(collection(db, 'chat_history'), {
         role: 'model',
         content: result.response,
@@ -78,7 +73,6 @@ export default function Home() {
 
     } catch (error: any) {
       console.error("Error en chat de Kitten:", error);
-      
       const errorMsg = error.message?.toLowerCase() || "";
       if (errorMsg.includes('403') || errorMsg.includes('blocked') || errorMsg.includes('forbidden')) {
         setApiErrorType('403');

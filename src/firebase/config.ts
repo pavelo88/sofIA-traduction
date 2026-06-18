@@ -1,8 +1,9 @@
+
 'use client';
 
 /**
- * @fileOverview Configuración de Firebase sincronizada con el entorno.
- * Forzamos la lectura dinámica de variables NEXT_PUBLIC para evitar fugas de caché.
+ * @fileOverview Configuración de Firebase con validación estricta de entorno.
+ * Asegura que las variables NEXT_PUBLIC se carguen correctamente en el cliente.
  */
 
 export const firebaseConfig = {
@@ -13,3 +14,8 @@ export const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
+// Validación defensiva en desarrollo
+if (typeof window !== 'undefined' && !firebaseConfig.apiKey) {
+  console.warn('SoftIA: Firebase API Key no detectada en el cliente. Revisa el archivo .env');
+}
