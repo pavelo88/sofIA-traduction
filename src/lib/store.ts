@@ -10,6 +10,8 @@ interface AppState {
   cameraResolution: '1080p' | '720p';
   cameraFPS: number;
   learningProgress: number;
+  nativeLanguage: string;
+  targetLanguage: string;
   lastTranslation: {
     original: string;
     translated: string;
@@ -17,6 +19,8 @@ interface AppState {
   setThermalTemperature: (temp: number) => void;
   updateTranslation: (original: string, translated: string) => void;
   incrementProgress: (amount: number) => void;
+  setNativeLanguage: (lang: string) => void;
+  setTargetLanguage: (lang: string) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -25,6 +29,8 @@ export const useStore = create<AppState>((set) => ({
   cameraResolution: '1080p',
   cameraFPS: 60,
   learningProgress: 45,
+  nativeLanguage: 'Español',
+  targetLanguage: 'Inglés',
   lastTranslation: null,
 
   setThermalTemperature: (temp) => set((state) => {
@@ -43,5 +49,8 @@ export const useStore = create<AppState>((set) => ({
 
   incrementProgress: (amount) => set((state) => ({
     learningProgress: Math.min(100, state.learningProgress + amount)
-  }))
+  })),
+
+  setNativeLanguage: (lang) => set({ nativeLanguage: lang }),
+  setTargetLanguage: (lang) => set({ targetLanguage: lang }),
 }));

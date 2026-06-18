@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { aiTutorConversation } from '@/ai/flows/ai-tutor-conversation';
 import { 
@@ -23,10 +23,10 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v2.2.0 - Toggle Voice & Billing Check)
+ * Pantalla Principal: Dashboard de SoftIA (v3.0.0 - Auto-Send & TTS)
  */
 export default function Home() {
-  const { learningProgress } = useStore();
+  const { learningProgress, nativeLanguage, targetLanguage } = useStore();
   const db = useFirestore();
 
   const { data: progressData } = useDoc(doc(db, 'user_progress', 'demo-user'));
@@ -40,17 +40,77 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   
   const recognitionRef = useRef<any>(null);
+  const inputRef = useRef(input);
+
+  // Mantener inputRef actualizado para usarlo en callbacks de SpeechRecognition
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
+
+  const speak = (text: string) => {
+    if (!window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    // Mapear idioma objetivo a código de idioma para TTS
+    utterance.lang = targetLanguage === 'Inglés' ? 'en-US' : 
+                     targetLanguage === 'Español' ? 'es-ES' : 
+                     targetLanguage === 'Francés' ? 'fr-FR' : 'es-ES';
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const handleKittenChat = useCallback(async (textToSubmit?: string) => {
+    const finalInput = textToSubmit || inputRef.current;
+    if (!finalInput.trim() || isLoading) return;
+
+    setIsLoading(true);
+    setApiErrorType(null);
+    setInput('');
+
+    try {
+      addDoc(collection(db, 'chat_history'), {
+        role: 'user',
+        content: finalInput,
+        timestamp: new Date().toISOString(),
+        user_email: 'demo@softia.com',
+        nativeLanguage,
+        targetLanguage
+      });
+
+      const result = await aiTutorConversation({
+        message: finalInput,
+        chatHistory: [],
+        nativeLanguage,
+        targetLanguage
+      });
+      
+      setKittenResponse(result.response);
+      speak(result.response);
+
+      addDoc(collection(db, 'chat_history'), {
+        role: 'model',
+        content: result.response,
+        timestamp: new Date().toISOString(),
+        user_email: 'demo@softia.com'
+      });
+
+    } catch (error: any) {
+      console.error("Error en chat de Kitten:", error);
+      const errorMsg = error.message?.toLowerCase() || "";
+      if (errorMsg.includes('403')) setApiErrorType('403');
+      else if (errorMsg.includes('429')) setApiErrorType('429');
+      setKittenResponse("¡Miau! Algo interfirió con mi señal espacial.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [db, isLoading, nativeLanguage, targetLanguage]);
 
   useEffect(() => {
     setIsMounted(true);
-    
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition();
-      // Mantenemos el micro abierto hasta que el usuario decida pararlo
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = 'es-ES';
+      recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
 
       recognition.onresult = (event: any) => {
         let finalTranscript = '';
@@ -65,37 +125,20 @@ export default function Home() {
       };
 
       recognition.onend = () => {
-        // Solo cambiamos el estado si el sistema lo detiene forzosamente
-        // pero mantenemos la lógica de toggle manual
-        setIsRecording(false);
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error('Error de voz:', event.error);
-        setIsRecording(false);
-        if (event.error !== 'no-speech') {
-          toast({
-            title: "Señal de voz interrumpida",
-            description: "Hubo un problema captando tu voz. Intenta de nuevo.",
-            variant: "destructive"
-          });
+        // Enviar automáticamente si el usuario terminó de hablar
+        if (inputRef.current.trim()) {
+          handleKittenChat();
         }
+        setIsRecording(false);
       };
 
+      recognition.onerror = () => setIsRecording(false);
       recognitionRef.current = recognition;
     }
-  }, []);
+  }, [nativeLanguage, handleKittenChat]);
 
   const toggleVoice = () => {
-    if (!recognitionRef.current) {
-      toast({
-        title: "Voz no soportada",
-        description: "Tu dispositivo no admite reconocimiento de voz nativo.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    if (!recognitionRef.current) return;
     if (isRecording) {
       recognitionRef.current.stop();
       setIsRecording(false);
@@ -105,100 +148,27 @@ export default function Home() {
     }
   };
 
-  const handleKittenChat = async () => {
-    if (!input.trim() || isLoading) return;
-
-    // Si estamos grabando, detenemos para procesar
-    if (isRecording) {
-      toggleVoice();
-    }
-
-    setIsLoading(true);
-    setApiErrorType(null);
-    const userMessage = input;
-    setInput('');
-
-    try {
-      addDoc(collection(db, 'chat_history'), {
-        role: 'user',
-        content: userMessage,
-        timestamp: new Date().toISOString(),
-        user_email: 'demo@softia.com'
-      });
-
-      const result = await aiTutorConversation({
-        message: userMessage,
-        chatHistory: [] 
-      });
-      
-      setKittenResponse(result.response);
-
-      addDoc(collection(db, 'chat_history'), {
-        role: 'model',
-        content: result.response,
-        timestamp: new Date().toISOString(),
-        user_email: 'demo@softia.com'
-      });
-
-    } catch (error: any) {
-      console.error("Error en chat de Kitten:", error);
-      const errorMsg = error.message?.toLowerCase() || "";
-      
-      if (errorMsg.includes('403') || errorMsg.includes('blocked')) {
-        setApiErrorType('403');
-        setKittenResponse("Mi señal está bloqueada por un escudo de seguridad. 🛡️");
-      } else if (errorMsg.includes('429') || errorMsg.includes('exhausted') || errorMsg.includes('credits')) {
-        setApiErrorType('429');
-        setKittenResponse("¡Miau! Me he quedado sin energía espacial (créditos). Necesito una recarga en AI Studio. 🔋");
-      } else {
-        setKittenResponse("¡Miau!... algo interfirió con mi señal espacial. Revisa tu conexión cósmica. 🚀");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   if (!isMounted) return null;
 
   return (
     <main className="relative min-h-screen bg-background overflow-hidden flex flex-col items-center">
-      
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-primary/10 via-background to-background" />
 
       <header className="relative z-20 w-full max-w-4xl pt-16 px-6 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
         
         {apiErrorType === '429' && (
-          <Alert variant="destructive" className="mb-6 border-rose-500/50 bg-rose-500/10 backdrop-blur-md animate-in slide-in-from-top-2">
+          <Alert variant="destructive" className="mb-6 border-rose-500/50 bg-rose-500/10 backdrop-blur-md">
             <Wallet className="h-5 w-5 text-rose-500" />
-            <AlertTitle className="font-headline uppercase tracking-widest text-xs text-rose-500">Energía Agotada (429) 🔋</AlertTitle>
-            <AlertDescription className="text-xs opacity-90 mt-2 text-white">
-              Tus créditos prepago en Google AI Studio se han agotado. Para continuar:
-              <ul className="list-disc ml-5 mt-2 space-y-1">
-                <li>Ve a <a href="https://aistudio.google.com/app/billing" target="_blank" className="underline font-bold">AI Studio Billing</a>.</li>
-                <li>Verifica tu plan o añade créditos a tu cuenta de prepago.</li>
-                <li>O utiliza una clave de API diferente con cuota disponible.</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {apiErrorType === '403' && (
-          <Alert variant="destructive" className="mb-6 border-amber-500/50 bg-amber-500/10 backdrop-blur-md animate-in slide-in-from-top-2">
-            <ShieldAlert className="h-5 w-5 text-amber-500" />
-            <AlertTitle className="font-headline uppercase tracking-widest text-xs text-amber-500">Diagnóstico de Seguridad (403) 🛡️</AlertTitle>
-            <AlertDescription className="text-xs opacity-90 mt-2 text-white">
-              La API está bloqueada. Revisa las <strong>Restricciones de la Clave de API</strong> en Google Cloud Console.
-            </AlertDescription>
+            <AlertTitle className="font-headline uppercase tracking-widest text-xs">Energía Agotada (429)</AlertTitle>
           </Alert>
         )}
 
         <div className="glass-panel p-8 rounded-[3rem] w-full flex flex-col md:flex-row items-center gap-8 border-white/10 shadow-primary/10 shadow-2xl">
-          
           <div className="relative shrink-0">
             <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/40 animate-pulse-glow">
               <span className="text-5xl" role="img" aria-label="Kitten Avatar">🐱</span>
             </div>
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-background" />
+            <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-background", isRecording ? "bg-rose-500 animate-ping" : "bg-green-500")} />
           </div>
 
           <div className="flex-1 space-y-6 w-full text-center md:text-left">
@@ -217,11 +187,10 @@ export default function Home() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleKittenChat()}
-                placeholder="Escribe o habla con Kitten..."
+                placeholder={`Hablemos en ${targetLanguage}...`}
                 disabled={isLoading}
-                className="bg-white/5 border-white/10 h-12 rounded-2xl text-sm focus-visible:ring-primary text-white placeholder:text-white/30"
+                className="bg-white/5 border-white/10 h-12 rounded-2xl text-sm focus-visible:ring-primary text-white"
               />
-              
               <div className="flex gap-2">
                 <Button 
                   onClick={toggleVoice}
@@ -229,19 +198,18 @@ export default function Home() {
                   className={cn(
                     "h-12 w-12 rounded-2xl squish-effect shrink-0 transition-all duration-300 shadow-lg",
                     isRecording 
-                      ? "bg-rose-500 hover:bg-rose-600 animate-pulse shadow-rose-500/60" 
-                      : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
+                      ? "bg-rose-500 hover:bg-rose-600 animate-pulse" 
+                      : "bg-white/10 hover:bg-white/20 text-white"
                   )}
                 >
                   {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                 </Button>
-
                 <Button 
-                  onClick={handleKittenChat}
+                  onClick={() => handleKittenChat()}
                   disabled={isLoading || !input.trim()}
-                  className="h-12 w-12 rounded-2xl bg-primary hover:bg-primary/80 squish-effect shrink-0 shadow-lg shadow-primary/20"
+                  className="h-12 w-12 rounded-2xl bg-primary hover:bg-primary/80 squish-effect shrink-0"
                 >
-                  {isLoading ? <Zap className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 text-white" />}
+                  <Send className="w-5 h-5 text-white" />
                 </Button>
               </div>
             </div>
@@ -250,16 +218,13 @@ export default function Home() {
 
         <div className="flex flex-wrap justify-center gap-4 mt-12">
           <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-white/60 border-white/5">
-            <Activity className="w-4 h-4 text-green-500" /> NÚCLEO_IA: {apiErrorType ? 'LIMITADO' : 'ONLINE'}
+            <Activity className="w-4 h-4 text-green-500" /> NÚCLEO_IA: ONLINE
           </div>
           <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-white/60 border-white/5">
-            <Star className="w-4 h-4 text-primary fill-primary" /> PROGRESO: {currentLevel}%
+            <Star className="w-4 h-4 text-primary fill-primary" /> NIVEL: {currentLevel}%
           </div>
         </div>
       </header>
-
-      <div className="fixed top-10 left-10 w-16 h-16 border-t border-l border-white/10 rounded-tl-2xl pointer-events-none opacity-20" />
-      <div className="fixed top-10 right-10 w-16 h-16 border-t border-r border-white/10 rounded-tr-2xl pointer-events-none opacity-20" />
     </main>
   );
 }
