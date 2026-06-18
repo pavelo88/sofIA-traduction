@@ -5,6 +5,11 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { BottomNav } from '@/components/layout/bottom-nav';
 
+/**
+ * RootLayout: Estructura base de SoftIA.
+ * Forzamos una actualización de renderizado para sincronizar variables de entorno (Ref: EnvSync_v2).
+ */
+
 export const metadata: Metadata = {
   title: 'SoftIA Translate | AR Spatial Learning',
   description: 'Sistema de traducción AR y tutor de aprendizaje con inteligencia artificial espacial.',
@@ -24,7 +29,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground overflow-x-hidden pb-24">
         <FirebaseClientProvider>
-          {children}
+          <div className="min-h-screen flex flex-col">
+            {children}
+          </div>
           <BottomNav />
           <FirebaseErrorListener />
           <Toaster />

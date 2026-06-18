@@ -1,9 +1,8 @@
-
 'use client';
 
 /**
- * @fileOverview Configuración de Firebase utilizando variables de entorno.
- * El uso del prefijo NEXT_PUBLIC_ es obligatorio para que las variables sean accesibles desde el lado del cliente.
+ * @fileOverview Configuración de Firebase sincronizada con el entorno.
+ * Se asegura de que no existan valores harcoded y se utilicen estrictamente las variables NEXT_PUBLIC.
  */
 
 export const firebaseConfig = {
