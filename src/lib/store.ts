@@ -1,10 +1,21 @@
 
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 /**
  * @interface AppState
  * Estado global con persistencia híbrida (Firebase/LocalStorage).
+ * Refactorización v4.0: Persistencia atómica y soporte para Modo Invitado.
  */
+
+export interface ConversationItem {
+  original: string;
+  translated: string;
+  from: string;
+  to: string;
+  timestamp: string;
+}
+
 interface AppState {
   isThermalThrottled: boolean;
   thermalTemperature: number;
@@ -19,6 +30,9 @@ interface AppState {
     original: string;
     translated: string;
   } | null;
+  conversationHistory: ConversationItem[];
+  
+  // Setters
   setThermalTemperature: (temp: number) => void;
   updateTranslation: (original: string, translated: string) => void;
   incrementProgress: (amount: number) => void;
@@ -26,58 +40,61 @@ interface AppState {
   setTargetLanguage: (lang: string) => void;
   setUserVoiceGender: (gender: 'masculino' | 'femenino') => void;
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
+  addConversationItem: (item: ConversationItem) => void;
 }
 
-// Carga inicial de LocalStorage para modo invitado
-const getInitialValue = (key: string, fallback: string) => {
-  if (typeof window === 'undefined') return fallback;
-  return localStorage.getItem(key) || fallback;
-};
+export const useStore = create<AppState>()(
+  persist(
+    (set) => ({
+      isThermalThrottled: false,
+      thermalTemperature: 38,
+      cameraResolution: '1080p',
+      cameraFPS: 60,
+      learningProgress: 45,
+      nativeLanguage: 'Español',
+      targetLanguage: 'Inglés',
+      userVoiceGender: 'masculino',
+      partnerVoiceGender: 'femenino',
+      lastTranslation: null,
+      conversationHistory: [],
 
-export const useStore = create<AppState>((set) => ({
-  isThermalThrottled: false,
-  thermalTemperature: 38,
-  cameraResolution: '1080p',
-  cameraFPS: 60,
-  learningProgress: 45,
-  nativeLanguage: getInitialValue('softia_native_lang', 'Español'),
-  targetLanguage: getInitialValue('softia_target_lang', 'Inglés'),
-  userVoiceGender: getInitialValue('softia_user_gender', 'masculino') as any,
-  partnerVoiceGender: getInitialValue('softia_partner_gender', 'femenino') as any,
-  lastTranslation: null,
+      setThermalTemperature: (temp) => set((state) => {
+        const isThrottled = temp > 45;
+        return {
+          thermalTemperature: temp,
+          isThermalThrottled: isThrottled,
+          cameraResolution: isThrottled ? '720p' : '1080p',
+          cameraFPS: isThrottled ? 30 : 60
+        };
+      }),
 
-  setThermalTemperature: (temp) => set((state) => {
-    const isThrottled = temp > 45;
-    return {
-      thermalTemperature: temp,
-      isThermalThrottled: isThrottled,
-      cameraResolution: isThrottled ? '720p' : '1080p',
-      cameraFPS: isThrottled ? 30 : 60
-    };
-  }),
+      updateTranslation: (original, translated) => set({
+        lastTranslation: { original, translated }
+      }),
 
-  updateTranslation: (original, translated) => set({
-    lastTranslation: { original, translated }
-  }),
+      incrementProgress: (amount) => set((state) => ({
+        learningProgress: Math.min(100, state.learningProgress + amount)
+      })),
 
-  incrementProgress: (amount) => set((state) => ({
-    learningProgress: Math.min(100, state.learningProgress + amount)
-  })),
-
-  setNativeLanguage: (lang) => {
-    localStorage.setItem('softia_native_lang', lang);
-    set({ nativeLanguage: lang });
-  },
-  setTargetLanguage: (lang) => {
-    localStorage.setItem('softia_target_lang', lang);
-    set({ targetLanguage: lang });
-  },
-  setUserVoiceGender: (gender) => {
-    localStorage.setItem('softia_user_gender', gender);
-    set({ userVoiceGender: gender });
-  },
-  setPartnerVoiceGender: (gender) => {
-    localStorage.setItem('softia_partner_gender', gender);
-    set({ partnerVoiceGender: gender });
-  },
-}));
+      setNativeLanguage: (lang) => set({ nativeLanguage: lang }),
+      setTargetLanguage: (lang) => set({ targetLanguage: lang }),
+      setUserVoiceGender: (gender) => set({ userVoiceGender: gender }),
+      setPartnerVoiceGender: (gender) => set({ partnerVoiceGender: gender }),
+      addConversationItem: (item) => set((state) => ({
+        conversationHistory: [item, ...state.conversationHistory].slice(0, 50)
+      })),
+    }),
+    {
+      name: 'softia-core-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        nativeLanguage: state.nativeLanguage,
+        targetLanguage: state.targetLanguage,
+        userVoiceGender: state.userVoiceGender,
+        partnerVoiceGender: state.partnerVoiceGender,
+        conversationHistory: state.conversationHistory,
+        learningProgress: state.learningProgress,
+      }),
+    }
+  )
+);
