@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Implementación del flujo de Genkit para el SoftIA Kitten Assistant.
@@ -31,8 +32,8 @@ const AITutorConversationOutputSchema = z.object({
 export type AITutorConversationOutput = z.infer<typeof AITutorConversationOutputSchema>;
 
 /**
- * Prompt del sistema que define la personalidad exacta de Kitten:
- * Tierno, breve, paciente, espacial, usa emojis y realiza sonidos gatunos.
+ * Prompt del sistema que define la personalidad exacta de Kitten.
+ * Se evita el uso de backticks internos para prevenir errores de parsing en la plantilla.
  */
 const aiTutorConversationPrompt = ai.definePrompt({
   name: 'aiTutorConversationPrompt',
@@ -49,7 +50,7 @@ Historial de nuestra conversación espacial:
 
 Mensaje actual del estudiante: {{{message}}}
 
-Por favor responde de acuerdo con tu personalidad adorable en el campo 'response'. Si te piden evaluar una traducción o escritura, llena los campos opcionales de 'evaluation' y 'suggestion'.`,
+Por favor responde de acuerdo con tu personalidad adorable en el campo response. Si te piden evaluar una traducción o escritura, llena los campos opcionales de evaluation y suggestion.`,
 });
 
 /**

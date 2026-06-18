@@ -1,0 +1,40 @@
+
+{
+  "entities": {
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Un mensaje individual en la conversación con Kitten.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "user_email": { "type": "string" }
+      },
+      "required": ["role", "content", "timestamp", "user_email"]
+    },
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Estadísticas de progreso del usuario.",
+      "type": "object",
+      "properties": {
+        "accuracy_percentage": { "type": "number" },
+        "user_email": { "type": "string" }
+      },
+      "required": ["accuracy_percentage", "user_email"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/chat_history/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Colección de historial de chat para memoria de la IA."
+    },
+    "/user_progress/{userId}": {
+      "schema": "UserProgress",
+      "description": "Información de progreso y nivel del usuario."
+    }
+  }
+}
