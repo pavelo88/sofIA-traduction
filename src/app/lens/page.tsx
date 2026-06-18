@@ -1,17 +1,14 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { arTextTranslation, type ARTextTranslationOutput } from '@/ai/flows/ar-text-translation';
-import { Sparkles, Activity, Cpu, Zap, Radio, Languages, MousePointer2 } from 'lucide-react';
+import { Sparkles, Radio, Languages, MousePointer2 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { cn } from '@/lib/utils';
 
 /**
- * ARLens: Escáner espacial activado por toque.
- * UX: El usuario toca cualquier parte del visor para analizar esa región.
+ * @summary ARLens: Escáner espacial activado por toque.
+ * Lógica de ciclo de vida de cámara optimizada para ahorro de energía.
  */
 export default function ARLens() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -25,11 +22,13 @@ export default function ARLens() {
   const containerRef = useRef<HTMLDivElement>(null);
   const db = useFirestore();
 
-  // --- INICIALIZACIÓN DE CÁMARA ---
+  // --- GESTIÓN CRÍTICA DEL HARDWARE (CÁMARA) ---
   useEffect(() => {
+    let stream: MediaStream | null = null;
+
     async function startCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode: "environment",
             width: { ideal: 1920 },
@@ -42,27 +41,27 @@ export default function ARLens() {
         }
       } catch (err) {
         console.error("Fallo al acceder al hardware de cámara:", err);
-        setCameraError("VISIÓN_OFF: No se detectó entrada de video.");
+        setCameraError("VISIÓN_OFF: Acceso denegado o hardware no detectado.");
       }
     }
+    
     startCamera();
 
-    // Limpieza crítica: Apagar cámara al desmontar para ahorrar batería
+    // LIMPIEZA TOTAL: Apagar cámara instantáneamente al salir de la ruta
     return () => {
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          track.stop();
+          console.log(`[SoftIA Hardware] Cámara track apagado: ${track.label}`);
+        });
       }
     };
   }, []);
 
-  /**
-   * Captura el frame actual y lo envía a Gemini.
-   */
   const captureAndAnalyze = async () => {
     if (!videoRef.current || !canvasRef.current || isProcessing) return;
 
     setIsProcessing(true);
-    
     try {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -84,21 +83,16 @@ export default function ARLens() {
       
       if (result.detections.length > 0) {
         const first = result.detections[0];
-        setLatestDetection({
-          original: first.originalText,
-          translated: first.translatedText
-        });
+        setLatestDetection({ original: first.originalText, translated: first.translatedText });
 
-        // Persistencia en Firestore
         addDoc(collection(db, 'chat_history'), {
           role: 'model',
           content: `Traducción AR: "${first.originalText}" -> "${first.translatedText}"`,
           timestamp: new Date().toISOString(),
           user_email: 'demo@softia.com',
-          metadata: { type: 'ar_tap_scan', count: result.detections.length }
+          metadata: { type: 'ar_tap_scan' }
         });
       }
-
     } catch (error) {
       console.warn("Error en escaneo táctil:", error);
     } finally {
@@ -106,53 +100,28 @@ export default function ARLens() {
     }
   };
 
-  /**
-   * Manejador de toque en el viewport.
-   * Calcula coordenadas para el efecto visual de onda (ripple).
-   */
   const handleViewportClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isProcessing || cameraError) return;
-
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-
-    // Calcular porcentajes relativos para el ripple
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-
     setTapRipple({ x, y });
-    
-    // Auto-limpieza del efecto visual tras 1s
     setTimeout(() => setTapRipple(null), 1000);
-
     captureAndAnalyze();
   };
 
   return (
-    <main className="min-h-screen bg-black flex flex-col items-center justify-center p-6 md:pl-32 overflow-hidden">
+    <main className="min-h-screen bg-black flex flex-col items-center justify-center p-6 overflow-hidden">
       
-      {/* Sidebar con Stop Propagation para evitar disparar escaneos accidentales */}
-      <div onClick={(e) => e.stopPropagation()}>
-        <SidebarNav />
-      </div>
-
-      {/* Viewport AR Interactivo */}
       <div 
         ref={containerRef}
         onClick={handleViewportClick}
         className="w-full max-w-6xl aspect-[16/9] glass-panel rounded-[3.5rem] relative overflow-hidden border-white/5 shadow-2xl cursor-crosshair group"
       >
-        
-        {/* Stream de Cámara */}
         <div className="absolute inset-0 z-0 bg-neutral-950">
           {!cameraError ? (
-            <video 
-              ref={videoRef}
-              autoPlay 
-              playsInline 
-              muted 
-              className="w-full h-full object-cover opacity-90 transition-opacity duration-1000"
-            />
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-90" />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center text-white/20">
               <Radio className="w-16 h-16 mb-4 animate-pulse" />
@@ -162,87 +131,52 @@ export default function ARLens() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none" />
         </div>
 
-        {/* Canvas Oculto */}
         <canvas ref={canvasRef} className="hidden" />
 
-        {/* EFECTO VISUAL DE ONDA (RIPPLE) AL TOCAR */}
         {tapRipple && (
-          <div 
-            className="absolute z-50 pointer-events-none"
-            style={{ left: `${tapRipple.x}%`, top: `${tapRipple.y}%` }}
-          >
+          <div className="absolute z-50 pointer-events-none" style={{ left: `${tapRipple.x}%`, top: `${tapRipple.y}%` }}>
             <div className="w-20 h-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/20 animate-ping" />
             <div className="w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_15px_rgba(161,98,247,0.8)]" />
           </div>
         )}
 
-        {/* HUD: Detecciones Espaciales */}
+        {/* HUD Detecciones */}
         <div className="absolute inset-0 z-20 pointer-events-none">
           {detections.map((det, index) => (
-            <div 
-              key={`${index}-${det.translatedText}`}
-              className="absolute animate-in fade-in zoom-in slide-in-from-bottom-2 duration-700 ease-out"
-              style={{ left: `${det.x}%`, top: `${det.y}%` }}
-            >
-              <div className="group pointer-events-auto relative -translate-x-1/2 -translate-y-1/2">
-                <div className="bg-primary/20 backdrop-blur-md border border-primary/40 px-5 py-2 rounded-full shadow-2xl shadow-primary/20 flex items-center gap-3 transition-all hover:scale-110">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-white text-[11px] font-headline font-bold uppercase tracking-wider">
-                    {det.translatedText}
-                  </span>
-                </div>
+            <div key={`${index}`} className="absolute animate-in fade-in zoom-in duration-700" style={{ left: `${det.x}%`, top: `${det.y}%` }}>
+              <div className="bg-primary/20 backdrop-blur-md border border-primary/40 px-5 py-2 rounded-full -translate-x-1/2 -translate-y-1/2">
+                <span className="text-white text-[11px] font-headline font-bold uppercase tracking-wider">{det.translatedText}</span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* TELEMETRÍA SUPERIOR */}
-        <div className="absolute top-10 left-10 z-30 flex flex-col gap-3 pointer-events-none" onClick={(e) => e.stopPropagation()}>
+        {/* Telemetría */}
+        <div className="absolute top-10 left-10 z-30 flex flex-col gap-3 pointer-events-none">
           <div className="glass-panel px-4 py-2 rounded-2xl flex items-center gap-3 border-primary/20">
             <MousePointer2 className="w-4 h-4 text-primary animate-bounce" />
-            <div className="flex flex-col">
-              <span className="text-[8px] text-primary font-headline uppercase tracking-widest leading-none mb-1">Modo_Interactiva</span>
-              <span className="text-[10px] text-white font-headline font-bold uppercase">Toca para Escanear</span>
-            </div>
+            <span className="text-[10px] text-white font-headline font-bold uppercase tracking-widest">Toca para Escanear</span>
           </div>
         </div>
 
-        {/* PANEL DE RESULTADOS INFERIOR PERSISTENTE */}
+        {/* Dashboard Inferior */}
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-xl pointer-events-none">
-          <div className="glass-panel p-6 rounded-[2.5rem] bg-black/60 backdrop-blur-3xl border-white/10 shadow-2xl flex flex-col items-center text-center animate-in slide-in-from-bottom-4 duration-500">
+          <div className="glass-panel p-6 rounded-[2.5rem] bg-black/60 backdrop-blur-3xl border-white/10 shadow-2xl flex flex-col items-center text-center">
             {isProcessing ? (
               <div className="flex flex-col items-center gap-3 py-2">
                 <Sparkles className="w-6 h-6 text-primary animate-spin" />
-                <span className="text-xs font-headline text-primary uppercase tracking-[0.2em] animate-pulse">
-                  Analizando entorno... 🛸
-                </span>
+                <span className="text-xs font-headline text-primary uppercase tracking-[0.2em] animate-pulse">Analizando...</span>
               </div>
             ) : latestDetection ? (
-              <div className="w-full space-y-2 animate-in fade-in duration-700">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <Languages className="w-4 h-4 text-primary/60" />
-                  <span className="text-[10px] font-headline text-primary uppercase tracking-widest">Traducción Espacial</span>
-                </div>
-                <p className="text-xs text-primary font-medium italic opacity-70">
-                  "{latestDetection.original}"
-                </p>
-                <p className="text-lg md:text-xl font-headline font-bold text-white tracking-tight">
-                  {latestDetection.translated}
-                </p>
+              <div className="w-full space-y-2 animate-in fade-in">
+                <p className="text-xs text-primary font-medium italic opacity-70">"{latestDetection.original}"</p>
+                <p className="text-lg md:text-xl font-headline font-bold text-white tracking-tight">{latestDetection.translated}</p>
               </div>
             ) : (
-              <span className="text-[10px] font-headline text-white/40 uppercase tracking-[0.3em] py-4">
-                Listo para escaneo táctil
-              </span>
+              <span className="text-[10px] font-headline text-white/40 uppercase tracking-[0.3em] py-4">Sistema de Visión Listo</span>
             )}
           </div>
         </div>
-
-        {/* Marcos de Esquina */}
-        <div className="absolute top-6 left-6 w-12 h-12 border-t border-l border-white/10 rounded-tl-3xl pointer-events-none" />
-        <div className="absolute top-6 right-6 w-12 h-12 border-t border-r border-white/10 rounded-tr-3xl pointer-events-none" />
-        <div className="absolute bottom-6 left-6 w-12 h-12 border-b border-l border-white/10 rounded-bl-3xl pointer-events-none" />
-        <div className="absolute bottom-6 right-6 w-12 h-12 border-b border-r border-white/10 rounded-br-3xl pointer-events-none" />
       </div>
     </main>
   );
