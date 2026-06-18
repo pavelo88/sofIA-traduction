@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -41,7 +42,7 @@
   }
 }
 
-/* Glassmorphism 2.0: Paneles con desenfoque profundo y bordes sutiles */
+/* Glassmorphism 2.0 */
 .glass-panel {
   @apply bg-card/40 backdrop-blur-2xl border border-white/10 shadow-2xl;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
@@ -51,57 +52,34 @@
   @apply bg-white/5 backdrop-blur-lg border border-white/10 hover:bg-white/10 transition-all duration-300;
 }
 
-/* Efecto Squish Táctil Reanimado (Simulado en CSS para Web) */
+/* Efecto Squish Táctil */
 .squish-effect {
   @apply transition-transform duration-200 active:scale-90 cursor-pointer;
 }
 
-/* Bento Grid Dinámico */
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 1.5rem;
-}
-
-@media (max-width: 768px) {
-  .bento-grid {
-    display: flex;
-    flex-direction: column;
-  }
-}
-
-/* Parallax Tilt Effect (CSS Variable-based) */
-.tilt-card {
-  transition: transform 0.1s ease-out;
-  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-}
-
-/* Escaneo AR Visual */
-.ar-scanner {
-  position: relative;
-  overflow: hidden;
-}
-
-.ar-scanner::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, hsl(var(--primary)), transparent);
-  animation: scan 3s linear infinite;
-  box-shadow: 0 0 15px hsl(var(--primary));
-  z-index: 10;
-}
-
+/* Animación de Escaneo AR Lineal */
 @keyframes scan {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(100%); }
+  0% { transform: translateY(-10%); }
+  50% { transform: translateY(110%); }
+  100% { transform: translateY(-10%); }
 }
 
-/* Tipografía de Encabezados */
+.animate-scan {
+  animation: scan 6s ease-in-out infinite;
+}
+
+/* Tipografía */
 .font-headline {
   font-family: 'Space Grotesk', sans-serif;
   letter-spacing: -0.02em;
+}
+
+/* Efecto Glow para el asistente */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(161, 98, 247, 0.4); }
+  50% { box-shadow: 0 0 20px 5px rgba(161, 98, 247, 0.2); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s infinite;
 }
