@@ -305,7 +305,25 @@ export function useConversacion() {
       };
 
       const currentLang = isNativeTurnRef.current ? nativeLangRef.current : targetLangRef.current;
-      recognition.lang = langMapping[currentLang] || 'en-US';
+      
+      const normalizeLang = (name: string) => {
+        const lower = name.toLowerCase();
+        if (lower.includes('ing')) return 'en-US';
+        if (lower.includes('espa')) return 'es-ES';
+        if (lower.includes('fran')) return 'fr-FR';
+        if (lower.includes('ale')) return 'de-DE';
+        if (lower.includes('port')) return 'pt-PT';
+        if (lower.includes('ita')) return 'it-IT';
+        if (lower.includes('chi')) return 'zh-CN';
+        if (lower.includes('jap')) return 'ja-JP';
+        if (lower.includes('ara') || lower.includes('ára')) return 'ar-SA';
+        if (lower.includes('rus')) return 'ru-RU';
+        return langMapping[name] || 'en-US';
+      };
+
+      const langCode = normalizeLang(currentLang);
+      console.log(`[SoftIA Voice] Iniciando grabación en idioma: ${currentLang} -> ${langCode}`);
+      recognition.lang = langCode;
       
       // Grabación manual continua estricta
       recognition.continuous = true;

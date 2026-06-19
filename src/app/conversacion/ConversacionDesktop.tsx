@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
+import { NewChatSetupModal } from '@/components/modals/NewChatSetupModal';
 
 export function ConversacionDesktop() {
   const logic = useConversacion();
@@ -40,6 +41,7 @@ export function ConversacionDesktop() {
 
   // Historial cronológico invertido
   const chronologicalHistory = [...logic.history].reverse();
+  const [isChatSetupOpen, setIsChatSetupOpen] = useState(logic.history.length === 0);
 
   useEffect(() => {
     if (videoRef.current && logic.streamRef.current && logic.isCameraActive) {
@@ -61,7 +63,7 @@ export function ConversacionDesktop() {
             layout
             onClick={() => logic.isNativeTurn || logic.toggleTurn()}
             animate={{
-              flex: logic.isNativeTurn ? 2 : 1,
+              flex: logic.isNativeTurn ? "1 1 auto" : "0 0 100px",
               opacity: logic.isNativeTurn ? 1 : 0.6,
               scale: logic.isNativeTurn ? 1 : 0.98,
             }}
@@ -154,29 +156,47 @@ export function ConversacionDesktop() {
             </motion.div>
 
             {/* Contenido / Historial de Guion */}
-            <div className="h-[250px] overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-2">
-              {chronologicalHistory.length === 0 ? (
-                <p className="font-headline font-bold text-2xl text-white/30 italic">Presiona el micrófono para hablar...</p>
-              ) : (
-                chronologicalHistory.map((item, idx) => {
-                  const isSelf = item.from === logic.nativeLanguage;
-                  return (
-                    <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
-                      <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
-                        {isSelf ? (logic.nativeName || 'Personal').toUpperCase() + ':' : (logic.targetName || 'Invitado').toUpperCase() + ':'}
-                      </span>
-                      <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
+            <AnimatePresence>
+              {logic.isNativeTurn && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex-1 overflow-y-auto space-y-4 custom-scrollbar w-full pr-2 pb-4"
+                >
+                  {chronologicalHistory.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-white/30 italic">
+                      Presiona el micrófono para hablar...
                     </div>
-                  );
-                })
+                  ) : (
+                    chronologicalHistory.map((item, idx) => {
+                      const isSelf = item.from === logic.nativeLanguage;
+                      return (
+                        <div key={idx} className={cn("flex flex-col w-full max-w-[85%] mb-2", isSelf ? "ml-auto items-end" : "mr-auto items-start")}>
+                          <span className={cn("text-[9px] uppercase tracking-wider mb-1 px-1 font-bold", isSelf ? "text-primary/70" : "text-white/40")}>
+                            {isSelf ? logic.nativeName : logic.targetName}
+                          </span>
+                          <div className={cn("p-4 rounded-2xl shadow-lg", isSelf ? "bg-primary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
+                            <p className="text-base font-medium leading-relaxed">{item.original}</p>
+                            <p className="text-xs opacity-70 mt-1.5 italic border-t border-white/20 pt-1.5">{item.translated}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  {logic.isRecording && logic.isNativeTurn && logic.liveTranscript && (
+                    <div className="flex flex-col w-full max-w-[85%] ml-auto items-end mb-2">
+                      <span className="text-[9px] uppercase tracking-wider mb-1 px-1 font-bold text-primary/70 animate-pulse">
+                        Transcribiendo...
+                      </span>
+                      <div className="p-4 rounded-2xl shadow-lg bg-primary/40 text-white rounded-tr-sm border border-primary/50 animate-pulse">
+                        <p className="text-base font-medium leading-relaxed">{logic.liveTranscript}</p>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
               )}
-              {logic.isRecording && logic.isNativeTurn && logic.liveTranscript && (
-                <div className="text-sm text-primary/70 animate-pulse italic">
-                  <span className="font-bold mr-2 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
-                  <span className="text-lg">{logic.liveTranscript}</span>
-                </div>
-              )}
-            </div>
+            </AnimatePresence>
           </motion.div>
 
           {/* PANEL DE INVITADO EXTRANJERO */}
@@ -184,7 +204,7 @@ export function ConversacionDesktop() {
             layout
             onClick={() => !logic.isNativeTurn || logic.toggleTurn()}
             animate={{
-              flex: !logic.isNativeTurn ? 2 : 1,
+              flex: !logic.isNativeTurn ? "1 1 auto" : "0 0 100px",
               opacity: !logic.isNativeTurn ? 1 : 0.6,
               scale: !logic.isNativeTurn ? 1 : 0.98,
             }}
@@ -277,29 +297,47 @@ export function ConversacionDesktop() {
             </motion.div>
 
             {/* Contenido / Historial de Guion */}
-            <div className="h-[250px] overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-2">
-              {chronologicalHistory.length === 0 ? (
-                <p className="font-headline font-bold text-2xl text-white/30 italic">Esperando respuesta...</p>
-              ) : (
-                chronologicalHistory.map((item, idx) => {
-                  const isSelf = item.from === logic.targetLanguage;
-                  return (
-                    <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
-                      <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
-                        {isSelf ? (logic.targetName || 'Invitado').toUpperCase() + ':' : (logic.nativeName || 'Personal').toUpperCase() + ':'}
-                      </span>
-                      <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
+            <AnimatePresence>
+              {!logic.isNativeTurn && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="flex-1 overflow-y-auto space-y-4 custom-scrollbar w-full pr-2 pb-4"
+                >
+                  {chronologicalHistory.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-white/30 italic">
+                      Esperando respuesta...
                     </div>
-                  );
-                })
+                  ) : (
+                    chronologicalHistory.map((item, idx) => {
+                      const isSelf = item.from === logic.targetLanguage;
+                      return (
+                        <div key={idx} className={cn("flex flex-col w-full max-w-[85%] mb-2", isSelf ? "ml-auto items-end" : "mr-auto items-start")}>
+                          <span className={cn("text-[9px] uppercase tracking-wider mb-1 px-1 font-bold", isSelf ? "text-secondary/70" : "text-white/40")}>
+                            {isSelf ? logic.targetName : logic.nativeName}
+                          </span>
+                          <div className={cn("p-4 rounded-2xl shadow-lg", isSelf ? "bg-secondary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
+                            <p className="text-base font-medium leading-relaxed">{item.original}</p>
+                            <p className="text-xs opacity-70 mt-1.5 italic border-t border-white/20 pt-1.5">{item.translated}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  {logic.isRecording && !logic.isNativeTurn && logic.liveTranscript && (
+                    <div className="flex flex-col w-full max-w-[85%] ml-auto items-end mb-2">
+                      <span className="text-[9px] uppercase tracking-wider mb-1 px-1 font-bold text-secondary/70 animate-pulse">
+                        Transcribiendo...
+                      </span>
+                      <div className="p-4 rounded-2xl shadow-lg bg-secondary/40 text-white rounded-tr-sm border border-secondary/50 animate-pulse">
+                        <p className="text-base font-medium leading-relaxed">{logic.liveTranscript}</p>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
               )}
-              {logic.isRecording && !logic.isNativeTurn && logic.liveTranscript && (
-                <div className="text-sm text-secondary/70 animate-pulse italic">
-                  <span className="font-bold mr-2 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
-                  <span className="text-lg">{logic.liveTranscript}</span>
-                </div>
-              )}
-            </div>
+            </AnimatePresence>
           </motion.div>
 
         </div>
@@ -446,7 +484,10 @@ export function ConversacionDesktop() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => logic.clearConversation()}
+                  onClick={() => {
+                    logic.clearConversation();
+                    setIsChatSetupOpen(true);
+                  }}
                   className="w-8 h-8 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                   title="Borrar historial"
                 >
@@ -533,30 +574,32 @@ export function ConversacionDesktop() {
               autoFocus
             />
           </div>
-          <DialogFooter className="sm:justify-end">
+          <DialogFooter className="sm:justify-end gap-2">
             <Button
               type="button"
               variant="ghost"
-              className="text-white/70 hover:text-white hover:bg-white/10"
-              onClick={() => setIsFinishDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              className="bg-primary hover:bg-primary/90 text-white"
               onClick={() => {
                 logic.saveAndClearConversation(sessionName || 'Conversación sin nombre');
                 setIsFinishDialogOpen(false);
+                setIsChatSetupOpen(true);
                 setSessionName('');
               }}
+              className="text-white/70 hover:text-white"
             >
-              Guardar y Limpiar
+              Finalizar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setIsFinishDialogOpen(false)}
+              className="bg-primary hover:bg-primary/90 text-white"
+            >
+              Seguir Hablando
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      <NewChatSetupModal isOpen={isChatSetupOpen} onClose={() => setIsChatSetupOpen(false)} />
     </div>
   );
 }
