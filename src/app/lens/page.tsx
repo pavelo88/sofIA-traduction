@@ -3,13 +3,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { arTextTranslation, type ARTextTranslationOutput } from '@/ai/flows/ar-text-translation';
-import { Sparkles, Radio, MousePointer2, Info } from 'lucide-react';
+import { Sparkles, Radio, MousePointer2, Info, Camera, ScanText } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
 /**
- * @summary ARLens: Escáner espacial inmersivo de pantalla completa.
- * Rediseño v6.0: Layout cinemático con controles de cristal flotantes.
+ * @summary ARLens: Escáner espacial inmersivo de pantalla completa (Cinematic Experience).
+ * Refactorización v7.0: Video absolute inset-0 y HUD flotante con Glassmorphism 3.0.
  */
 export default function ARLens() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -93,7 +93,7 @@ export default function ARLens() {
         });
       }
     } catch (error) {
-      console.warn("Error en escaneo táctil:", error);
+      console.warn("[SoftIA Lens] Error en escaneo espacial:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -121,15 +121,16 @@ export default function ARLens() {
             autoPlay 
             playsInline 
             muted 
-            className="w-full h-full object-cover opacity-90 transition-opacity duration-1000" 
+            className="absolute inset-0 w-full h-full object-cover z-0 rounded-none opacity-90 transition-opacity duration-1000" 
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-white/20 bg-zinc-950">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/20 bg-zinc-950 z-0">
             <Radio className="w-16 h-16 mb-4 animate-pulse" />
             <p className="font-headline tracking-widest uppercase text-[10px]">{cameraError}</p>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
+        {/* Capa de atmósfera cinemática */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/40 pointer-events-none z-[1]" />
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
@@ -142,11 +143,12 @@ export default function ARLens() {
         </div>
       )}
 
-      {/* HUD DE DETECCIONES ESPACIALES */}
+      {/* HUD DE DETECCIONES ESPACIALES (HUD FLOTANTE) */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         {detections.map((det, index) => (
           <div key={`${index}`} className="absolute animate-in fade-in zoom-in duration-700" style={{ left: `${det.x}%`, top: `${det.y}%` }}>
-            <div className="bg-primary/20 backdrop-blur-xl border border-primary/40 px-5 py-2 rounded-full -translate-x-1/2 -translate-y-1/2 shadow-2xl">
+            <div className="bg-primary/30 backdrop-blur-2xl border border-primary/40 px-5 py-2 rounded-full -translate-x-1/2 -translate-y-1/2 shadow-2xl flex items-center gap-2">
+              <ScanText className="w-3 h-3 text-primary" />
               <span className="text-white text-[10px] font-headline font-bold uppercase tracking-widest">{det.translatedText}</span>
             </div>
           </div>
@@ -155,41 +157,57 @@ export default function ARLens() {
 
       {/* TELEMETRÍA SUPERIOR */}
       <div className="absolute top-10 left-10 right-10 z-30 flex justify-between items-start pointer-events-none">
-        <div className="glass-panel px-5 py-2.5 rounded-full flex items-center gap-3 border-white/5 bg-black/20 backdrop-blur-md">
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-6 py-2.5 rounded-full flex items-center gap-3">
           <MousePointer2 className="w-3.5 h-3.5 text-primary animate-bounce" />
-          <span className="text-[9px] text-white/60 font-headline font-bold uppercase tracking-[0.2em]">Toca cualquier texto</span>
+          <span className="text-[9px] text-white/70 font-headline font-bold uppercase tracking-[0.2em]">Interactúa con el entorno</span>
         </div>
         
-        <div className="glass-panel px-5 py-2.5 rounded-full flex items-center gap-3 border-white/5 bg-black/20 backdrop-blur-md">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-[9px] text-white/60 font-headline font-bold uppercase tracking-[0.2em]">Live HUD</span>
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-6 py-2.5 rounded-full flex items-center gap-3">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
+          <span className="text-[9px] text-white/70 font-headline font-bold uppercase tracking-[0.2em]">Spatial_Eye: v4.0</span>
         </div>
       </div>
 
-      {/* DASHBOARD FLOTANTE INFERIOR */}
+      {/* DASHBOARD FLOTANTE INFERIOR (GLASSMORPHISM 3.0) */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-xl pointer-events-none">
-        <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.08] rounded-[2.5rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center text-center transition-all duration-500">
+        <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/[0.08] rounded-[2.5rem] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col items-center text-center transition-all duration-700 pointer-events-auto">
           {isProcessing ? (
-            <div className="flex flex-col items-center gap-4 py-4">
+            <div className="flex flex-col items-center gap-5 py-2">
               <div className="relative">
-                <Sparkles className="w-8 h-8 text-primary animate-spin" />
-                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
+                <Sparkles className="w-10 h-10 text-primary animate-spin" />
+                <div className="absolute inset-0 bg-primary/30 blur-2xl rounded-full animate-pulse" />
               </div>
-              <span className="text-[10px] font-headline text-primary font-bold uppercase tracking-[0.3em]">Analizando Espacio...</span>
+              <div className="space-y-1">
+                <span className="text-[11px] font-headline text-primary font-bold uppercase tracking-[0.3em]">Analizando Matriz Espacial</span>
+                <p className="text-[8px] text-white/30 uppercase tracking-[0.2em]">Procesando visión por computadora...</p>
+              </div>
             </div>
           ) : latestDetection ? (
-            <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-2">
-              <div className="flex items-center justify-center gap-2 text-white/40">
-                <Info className="w-3 h-3" />
-                <span className="text-[9px] uppercase tracking-widest font-bold">Detección Confirmada</span>
+            <div className="w-full space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="flex items-center justify-center gap-3 text-white/40">
+                <div className="h-px w-8 bg-white/10" />
+                <span className="text-[9px] uppercase tracking-[0.3em] font-bold">Traducción Confirmada</span>
+                <div className="h-px w-8 bg-white/10" />
               </div>
-              <p className="text-xs text-primary/80 font-medium italic">"{latestDetection.original}"</p>
-              <p className="text-xl md:text-2xl font-headline font-bold text-white tracking-tight leading-tight">{latestDetection.translated}</p>
+              <div className="space-y-2">
+                <p className="text-xs text-primary/60 font-medium italic">"{latestDetection.original}"</p>
+                <p className="text-2xl md:text-3xl font-headline font-bold text-white tracking-tight leading-tight">
+                  {latestDetection.translated}
+                </p>
+              </div>
+              <div className="pt-2">
+                <span className="text-[8px] text-white/20 uppercase tracking-[0.4em]">Toca otra vez para escanear</span>
+              </div>
             </div>
           ) : (
-            <div className="py-4 space-y-1">
-              <span className="text-[10px] font-headline text-white/40 uppercase tracking-[0.4em]">Visión Espacial SoftIA</span>
-              <p className="text-[8px] text-white/20 uppercase tracking-widest">Enfoca y toca para traducir</p>
+            <div className="py-2 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center mx-auto mb-2">
+                <Camera className="w-6 h-6 text-white/20" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-headline text-white/50 uppercase tracking-[0.4em]">Lente AR SoftIA</span>
+                <p className="text-[8px] text-white/30 uppercase tracking-widest font-medium">Enfoca cualquier texto del mundo real</p>
+              </div>
             </div>
           )}
         </div>

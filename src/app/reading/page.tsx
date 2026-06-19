@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
-import { Mic, RefreshCcw, Activity } from 'lucide-react';
+import { Mic, RefreshCcw, Activity, BookOpen, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -11,8 +11,9 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 /**
- * @summary ReadingTutor: Sistema de evaluación de pronunciación.
- * Refactorización v6.0: Eliminación completa de hardware de video para optimización de batería.
+ * @summary ReadingTutor: Sistema de evaluación de pronunciación fonética.
+ * Refactorización v7.0: Sanitización total de hardware de video para optimización de batería.
+ * Centrado exclusivamente en Audio-Sync y Procesamiento de Lenguaje Natural.
  */
 export default function ReadingTutor() {
   const [targetSentence] = useState("The future of spatial learning is powered by artificial intelligence.");
@@ -26,7 +27,11 @@ export default function ReadingTutor() {
   const startSpeechRecognition = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      toast({ title: "No compatible", description: "Tu navegador no soporta voz nativa.", variant: "destructive" });
+      toast({ 
+        title: "Incompatibilidad detectada", 
+        description: "Tu navegador no soporta el motor de voz nativo de SoftIA.", 
+        variant: "destructive" 
+      });
       return;
     }
 
@@ -50,6 +55,11 @@ export default function ReadingTutor() {
       if (transcription) handleEvaluation();
     };
 
+    recognition.onerror = () => {
+      setIsRecording(false);
+      toast({ title: "Error de Audio", description: "No se pudo capturar la señal vocal.", variant: "destructive" });
+    };
+
     recognition.start();
   };
 
@@ -60,15 +70,19 @@ export default function ReadingTutor() {
       const result = await evaluatePronunciation({ targetSentence, transcription });
       setEvalResult(result);
 
-      await setDoc(doc(db, 'user_progress', 'demo-user'), {
+      // Persistencia de progreso en modo asíncrono
+      setDoc(doc(db, 'user_progress', 'demo-user'), {
         accuracy_percentage: result.accuracy,
         last_grade: result.grade,
         updated_at: new Date().toISOString()
       }, { merge: true });
 
-      toast({ title: `¡Nota: ${result.grade}!`, description: `Precisión: ${result.accuracy}%` });
+      toast({ 
+        title: `Sesión Finalizada: ${result.grade}`, 
+        description: `Precisión fonética del ${result.accuracy}%. ¡Miau!` 
+      });
     } catch (error) {
-      console.error(error);
+      console.error("[SoftIA] Error en evaluación fonética:", error);
     } finally {
       setIsEvaluating(false);
     }
@@ -76,50 +90,80 @@ export default function ReadingTutor() {
 
   return (
     <main className="relative min-h-screen bg-background overflow-hidden flex flex-col items-center justify-center p-6">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(161,98,247,0.1),transparent_70%)]" />
+      {/* Ambiente Espacial Minimalista */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(161,98,247,0.08),transparent_70%)]" />
       
-      <div className="relative z-10 w-full max-w-3xl animate-in zoom-in-95 duration-700">
-        <header className="mb-8 text-center">
-          <div className="inline-flex items-center gap-3 glass-panel px-6 py-2 rounded-full border-primary/20 mb-4">
-            <Activity className="w-4 h-4 text-primary" />
-            <span className="font-headline text-[10px] tracking-[0.2em] uppercase text-white/60">Audio_Sync: Activo</span>
+      <div className="relative z-10 w-full max-w-3xl animate-in zoom-in-95 duration-1000">
+        <header className="mb-10 text-center space-y-4">
+          <div className="inline-flex items-center gap-3 glass-panel px-6 py-2 rounded-full border-primary/20">
+            <Activity className="w-3.5 h-3.5 text-primary animate-pulse" />
+            <span className="font-headline text-[9px] tracking-[0.3em] uppercase text-white/50">Motor_Fonético: Operativo</span>
           </div>
-          <h1 className="text-4xl font-headline font-bold text-white tracking-tighter">Práctica de Pronunciación</h1>
+          <h1 className="text-4xl md:text-5xl font-headline font-bold text-white tracking-tighter flex items-center justify-center gap-4">
+            <BookOpen className="text-primary w-8 h-8" />
+            Reading Tutor
+          </h1>
         </header>
 
-        <div className="glass-panel p-10 rounded-[3rem] border-white/5 shadow-2xl space-y-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="glass-panel p-8 md:p-12 rounded-[3.5rem] border-white/5 shadow-2xl space-y-10 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 group-hover:bg-primary/10 transition-colors duration-1000" />
           
           {evalResult && (
-            <div className="absolute top-6 right-6 w-16 h-16 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center animate-bounce">
-              <span className="text-2xl font-headline font-black text-primary">{evalResult.grade}</span>
+            <div className="absolute top-8 right-8 w-20 h-20 rounded-3xl bg-primary/20 border border-primary/40 flex flex-col items-center justify-center animate-in fade-in zoom-in duration-500 shadow-[0_0_30px_rgba(161,98,247,0.2)]">
+              <span className="text-3xl font-headline font-black text-primary leading-none">{evalResult.grade}</span>
+              <Star className="w-3 h-3 text-primary fill-primary mt-1" />
             </div>
           )}
 
-          <div className="space-y-4 relative z-10">
-            <h3 className="text-xs font-headline uppercase tracking-widest text-white/30">Target_Sentence</h3>
-            <div className="text-2xl leading-snug font-medium text-white/90">
+          <div className="space-y-6 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/10" />
+              <h3 className="text-[10px] font-headline uppercase tracking-[0.4em] text-white/30 font-bold">Frase Objetivo</h3>
+              <div className="h-px flex-1 bg-white/10" />
+            </div>
+            
+            <div className="text-2xl md:text-3xl leading-tight font-medium text-white/90 text-center px-4">
               {evalResult ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap justify-center gap-x-3 gap-y-2">
                   {evalResult.words.map((w, i) => (
-                    <span key={i} className={cn(w.correct ? "text-emerald-400" : "text-rose-400 font-bold underline")}>{w.word}</span>
+                    <span 
+                      key={i} 
+                      className={cn(
+                        "transition-all duration-500",
+                        w.correct ? "text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]" : "text-rose-400 font-bold underline decoration-rose-500/50 underline-offset-8"
+                      )}
+                    >
+                      {w.word}
+                    </span>
                   ))}
                 </div>
-              ) : <p>{targetSentence}</p>}
+              ) : (
+                <p className="animate-in fade-in slide-in-from-bottom-2">{targetSentence}</p>
+              )}
             </div>
           </div>
 
-          <div className="flex justify-center pt-6 relative z-10">
+          <div className="flex flex-col items-center gap-6 pt-4 relative z-10">
             <Button 
               onClick={startSpeechRecognition}
               disabled={isRecording || isEvaluating}
               className={cn(
-                "h-20 w-20 rounded-full transition-all duration-500 shadow-2xl squish-effect",
-                isRecording ? "bg-rose-500 scale-110 shadow-rose-500/20" : "bg-primary shadow-primary/40"
+                "h-24 w-24 rounded-full transition-all duration-500 shadow-2xl squish-effect border-8 border-background",
+                isRecording 
+                  ? "bg-rose-500 scale-110 shadow-rose-500/40 animate-pulse" 
+                  : "bg-primary shadow-primary/40 hover:scale-105"
               )}
             >
-              {isEvaluating ? <RefreshCcw className="w-8 h-8 animate-spin" /> : <Mic className="w-8 h-8" />}
+              {isEvaluating ? (
+                <RefreshCcw className="w-10 h-10 animate-spin" />
+              ) : (
+                <Mic className={cn("w-10 h-10", isRecording && "animate-bounce")} />
+              )}
             </Button>
+            
+            <p className="text-[10px] font-headline uppercase tracking-widest text-white/20 animate-pulse">
+              {isRecording ? "Capturando audio espacial..." : isEvaluating ? "Calculando precisión..." : "Presiona para comenzar la lectura"}
+            </p>
           </div>
         </div>
       </div>
