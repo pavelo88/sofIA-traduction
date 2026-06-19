@@ -6,6 +6,7 @@ import { useStore } from '@/lib/store';
 import { translateConversation } from '@/ai/flows/conversation-translate';
 import { callDeepSeekBackup } from '@/ai/deepseekClient';
 import { toast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
 
 export type ChatItem = {
   original: string;
@@ -17,7 +18,7 @@ export type ChatItem = {
 
 /**
  * @summary Hook de lógica de negocio para Conversación Dual.
- * Refactorización v8.0: Manejo estricto de concurrencia de audio y liberación de hardware.
+ * Refactorización v8.1: Modo invitado resiliente para evitar bloqueos por Auth.
  */
 export function useConversacion() {
   const { 
@@ -30,6 +31,8 @@ export function useConversacion() {
     addCredits,
     setIsProfileOpen
   } = useStore();
+  
+  const { user } = useUser();
   
   const [isNativeTurn, setIsNativeTurn] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -125,6 +128,7 @@ export function useConversacion() {
       speakText(translatedText, toLang);
     } catch (error) {
       console.error("[SoftIA Engine] Error:", error);
+      toast({ title: "Error de Motor", description: "No se pudo procesar la traducción." });
     } finally {
       setIsProcessing(false);
     }
@@ -150,12 +154,6 @@ export function useConversacion() {
       recognition.onerror = () => setIsRecording(false);
       recognitionRef.current = recognition;
     }
-
-    return () => {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.abort(); } catch (e) {}
-      }
-    };
   }, [nativeLanguage, targetLanguage, isNativeTurn, aiEngineMode]);
 
   useEffect(() => {
@@ -188,6 +186,8 @@ export function useConversacion() {
           recognitionRef.current.stop();
           setTimeout(() => recognitionRef.current.start(), 100);
         }
+      } else {
+        toast({ title: "Micro no listo", description: "Por favor, espera o recarga la página." });
       }
     }
   };
