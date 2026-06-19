@@ -6,6 +6,8 @@ import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 
+import { OnboardingModal } from '@/components/modals/OnboardingModal';
+
 export const metadata: Metadata = {
   title: 'SoftIA Translate | AR Spatial Learning',
   description: 'Sistema de traducción AR y tutor de aprendizaje con inteligencia artificial espacial.',
@@ -34,6 +36,7 @@ export default function RootLayout({
           <BottomNav />
           <FirebaseErrorListener />
           <Toaster />
+          <OnboardingModal />
         </FirebaseClientProvider>
       </body>
     </html>

@@ -17,9 +17,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useStore } from '@/lib/store';
+import { useToast } from '@/hooks/use-toast';
 
 export function ConversacionTablet() {
   const logic = useConversacion();
+  const { defaultNativeName, defaultTargetName, setDefaultNativeName, setDefaultTargetName } = useStore();
+  const { toast } = useToast();
   const [isTableModeActive, setIsTableModeActive] = useState(false);
   
   const formatTime = (secs: number) => {
@@ -99,7 +103,20 @@ export function ConversacionTablet() {
               <Input 
                 value={logic.nativeName} 
                 onChange={(e) => logic.setNativeName(e.target.value)} 
-                placeholder="Personal"
+                onBlur={() => {
+                  if (logic.nativeName && logic.nativeName !== defaultNativeName) {
+                    toast({
+                      title: "¿Guardar nombre por defecto?",
+                      description: `¿Deseas que "${logic.nativeName}" sea tu nombre para futuras sesiones?`,
+                      action: (
+                        <Button variant="outline" size="sm" onClick={() => setDefaultNativeName(logic.nativeName)}>
+                          Guardar
+                        </Button>
+                      ),
+                    });
+                  }
+                }}
+                placeholder="Usuario"
                 className="h-8 w-40 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-xs font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-primary transition-all"
               />
               <div className="flex gap-2 mt-1">
@@ -164,8 +181,21 @@ export function ConversacionTablet() {
               <Input 
                 value={logic.targetName} 
                 onChange={(e) => logic.setTargetName(e.target.value)} 
+                onBlur={() => {
+                  if (logic.targetName && logic.targetName !== defaultTargetName) {
+                    toast({
+                      title: "¿Guardar nombre por defecto?",
+                      description: `¿Deseas que "${logic.targetName}" sea el nombre del invitado para futuras sesiones?`,
+                      action: (
+                        <Button variant="outline" size="sm" onClick={() => setDefaultTargetName(logic.targetName)}>
+                          Guardar
+                        </Button>
+                      ),
+                    });
+                  }
+                }}
                 placeholder="Invitado"
-                className="h-8 w-40 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-xs font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-secondary transition-all text-right"
+                className="h-8 w-40 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-xs font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-secondary text-right transition-all"
               />
               <div className="flex gap-2 mt-1 justify-end">
                 <select 

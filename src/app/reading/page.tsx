@@ -52,10 +52,6 @@ export default function ReadingTutor() {
   const audioStreamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  const { user } = useUser();
-  const db = useFirestore();
-  const { targetLanguage } = useStore();
-
   const startAudioAnalyzer = async () => {
     stopAudioAnalyzer();
 

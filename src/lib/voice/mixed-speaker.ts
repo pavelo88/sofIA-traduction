@@ -39,7 +39,7 @@ export function speakMixedText(
   window.speechSynthesis.cancel();
 
   // Parse <lang> tags. Everything outside is nativeLanguage. Everything inside is targetLanguage.
-  const regex = /<lang>(.*?)<\/lang>/gs;
+  const regex = /<lang>([\s\S]*?)<\/lang>/g;
   const parts: { text: string; isTarget: boolean }[] = [];
   
   let lastIndex = 0;

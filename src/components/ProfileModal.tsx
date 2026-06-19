@@ -28,7 +28,10 @@ import {
   Globe, 
   Zap, 
   PlayCircle,
-  Server
+  Server,
+  History,
+  Trash2,
+  Play
 } from 'lucide-react';
 import { ModelSelectionModal } from './ModelSelectionModal';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -45,7 +48,7 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
   const { 
     nativeLanguage, targetLanguage, setNativeLanguage, setTargetLanguage,
     learningProgress, addCredits, isProfileOpen, setIsProfileOpen,
-    aiEngineMode
+    aiEngineMode, savedSessions, loadSession, deleteSession
   } = useStore();
   
   const [isWatchingAd, setIsWatchingAd] = useState(false);
@@ -165,6 +168,46 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
                 {isWatchingAd ? <Zap className="w-3 h-3 animate-spin" /> : <><PlayCircle className="w-4 h-4" /> Ganar +5 Créditos Gratis</>}
               </Button>
             </div>
+
+            {/* Conversaciones Guardadas */}
+            <div className="space-y-4 pt-4 border-t border-white/5">
+              <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold text-white/30 flex items-center gap-2">
+                <History className="w-3 h-3" /> Conversaciones Guardadas
+              </h3>
+              {savedSessions.length === 0 ? (
+                <div className="text-center text-white/40 text-xs italic py-4">No hay conversaciones guardadas.</div>
+              ) : (
+                <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                  {savedSessions.map(session => (
+                    <div key={session.id} className="flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.05] p-3 rounded-xl border border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-white/90">{session.name}</span>
+                        <span className="text-[9px] text-white/40">{new Date(session.date).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => loadSession(session.id)}
+                          className="w-8 h-8 rounded-full text-secondary hover:text-secondary hover:bg-secondary/10"
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => deleteSession(session.id)}
+                          className="w-8 h-8 rounded-full text-white/40 hover:text-rose-400 hover:bg-rose-500/10"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
 
           <div className="p-8 pt-4 border-t border-white/5 bg-black/20">

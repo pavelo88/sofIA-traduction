@@ -46,6 +46,9 @@ interface AppState {
   aiEngineMode: 'gemini' | 'deepseek' | 'device';
   userCredits: number;
   isProfileOpen: boolean;
+  hasCompletedOnboarding: boolean;
+  defaultNativeName: string;
+  defaultTargetName: string;
   
   // Setters
   setThermalTemperature: (temp: number) => void;
@@ -59,7 +62,12 @@ interface AppState {
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
   addConversationItem: (item: ConversationItem) => void;
   saveAndClearConversation: (name: string) => void;
+  loadSession: (id: string) => void;
+  deleteSession: (id: string) => void;
   clearConversation: () => void;
+  setHasCompletedOnboarding: (val: boolean) => void;
+  setDefaultNativeName: (name: string) => void;
+  setDefaultTargetName: (name: string) => void;
   setAiEngineMode: (mode: 'gemini' | 'deepseek' | 'device') => void;
   addCredits: (amount: number) => void;
   setIsProfileOpen: (open: boolean) => void;
@@ -75,8 +83,10 @@ export const useStore = create<AppState>()(
       learningProgress: 45,
       nativeLanguage: 'Español',
       targetLanguage: 'Inglés',
-      nativeName: 'Personal',
+      nativeName: 'Usuario',
       targetName: 'Invitado',
+      defaultNativeName: 'Usuario',
+      defaultTargetName: 'Invitado',
       userVoiceGender: 'masculino',
       partnerVoiceGender: 'femenino',
       lastTranslation: null,
@@ -85,6 +95,7 @@ export const useStore = create<AppState>()(
       aiEngineMode: 'gemini',
       userCredits: 25,
       isProfileOpen: false,
+      hasCompletedOnboarding: false,
 
       setThermalTemperature: (temp) => set((state) => {
         const isThrottled = temp > 45;
@@ -108,6 +119,9 @@ export const useStore = create<AppState>()(
       setTargetLanguage: (lang) => set({ targetLanguage: lang }),
       setNativeName: (name) => set({ nativeName: name }),
       setTargetName: (name) => set({ targetName: name }),
+      setDefaultNativeName: (name) => set({ defaultNativeName: name, nativeName: name }),
+      setDefaultTargetName: (name) => set({ defaultTargetName: name, targetName: name }),
+      setHasCompletedOnboarding: (val) => set({ hasCompletedOnboarding: val }),
       setUserVoiceGender: (gender) => set({ userVoiceGender: gender }),
       setPartnerVoiceGender: (gender) => set({ partnerVoiceGender: gender }),
       addConversationItem: (item) => set((state) => ({
@@ -126,6 +140,16 @@ export const useStore = create<AppState>()(
           conversationHistory: []
         };
       }),
+      loadSession: (id) => set((state) => {
+        const session = state.savedSessions.find(s => s.id === id);
+        if (session) {
+          return { conversationHistory: [...session.history], isProfileOpen: false };
+        }
+        return state;
+      }),
+      deleteSession: (id) => set((state) => ({
+        savedSessions: state.savedSessions.filter(s => s.id !== id)
+      })),
       clearConversation: () => set({ conversationHistory: [] }),
       setAiEngineMode: (mode) => set({ aiEngineMode: mode }),
       addCredits: (amount) => set((state) => ({ userCredits: state.userCredits + amount })),
@@ -144,7 +168,16 @@ export const useStore = create<AppState>()(
         learningProgress: state.learningProgress,
         aiEngineMode: state.aiEngineMode,
         userCredits: state.userCredits,
+        hasCompletedOnboarding: state.hasCompletedOnboarding,
+        defaultNativeName: state.defaultNativeName,
+        defaultTargetName: state.defaultTargetName,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state.setNativeName(state.defaultNativeName);
+          state.setTargetName(state.defaultTargetName);
+        }
+      },
     }
   )
 );

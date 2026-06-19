@@ -89,7 +89,7 @@ export default function KittenChat() {
     };
 
     const recognition = new SpeechRecognition();
-    recognition.lang = langMapping[nativeLanguage] || 'en-US';
+    recognition.lang = langMapping[targetLanguage] || 'en-US';
     recognition.continuous = true;
     recognition.interimResults = true;
     
@@ -203,15 +203,25 @@ export default function KittenChat() {
           </div>
           SoftIA Kitten Tutor
         </h1>
-        <Button 
-          variant="outline" 
-          onClick={handleSummary}
-          disabled={isLoading || (messages.length < 3 && conversationHistory.length === 0)}
-          className="rounded-full border-primary/30 text-primary hover:bg-primary/10 px-6 font-bold tracking-wider uppercase text-xs"
-        >
-          <Star className="w-4 h-4 mr-2" />
-          Resumen del Día
-        </Button>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => setMessages([])}
+            disabled={messages.length === 0}
+            className="rounded-full border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-6 font-bold tracking-wider uppercase text-xs"
+          >
+            Limpiar Chat
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleSummary}
+            disabled={isLoading || (messages.length < 3 && conversationHistory.length === 0)}
+            className="rounded-full border-primary/30 text-primary hover:bg-primary/10 px-6 font-bold tracking-wider uppercase text-xs"
+          >
+            <Star className="w-4 h-4 mr-2" />
+            Resumen del Día
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 glass-panel rounded-3xl border-white/5 flex flex-col overflow-hidden mb-6">

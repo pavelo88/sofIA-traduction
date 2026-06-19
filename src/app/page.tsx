@@ -143,7 +143,12 @@ export default function Home() {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
+    const langMapping: Record<string, string> = {
+      "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
+      "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
+      "Árabe": "ar-SA", "Ruso": "ru-RU"
+    };
+    recognition.lang = langMapping[nativeLanguage] || 'en-US';
 
     recognition.onstart = () => {
       setIsRecording(true);

@@ -20,9 +20,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useStore } from '@/lib/store';
+import { useToast } from '@/hooks/use-toast';
 
 export function ConversacionMobile() {
   const logic = useConversacion();
+  const { defaultNativeName, defaultTargetName, setDefaultNativeName, setDefaultTargetName } = useStore();
+  const { toast } = useToast();
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
   const [unlockedScroll, setUnlockedScroll] = useState<'local' | 'guest' | null>(null);
@@ -74,7 +78,20 @@ export function ConversacionMobile() {
                 <Input 
                   value={logic.nativeName} 
                   onChange={(e) => logic.setNativeName(e.target.value)} 
-                  placeholder="Personal"
+                  onBlur={() => {
+                    if (logic.nativeName && logic.nativeName !== defaultNativeName) {
+                      toast({
+                        title: "¿Guardar nombre por defecto?",
+                        description: `¿Deseas que "${logic.nativeName}" sea tu nombre para futuras sesiones?`,
+                        action: (
+                          <Button variant="outline" size="sm" onClick={() => setDefaultNativeName(logic.nativeName)}>
+                            Guardar
+                          </Button>
+                        ),
+                      });
+                    }
+                  }}
+                  placeholder="Usuario"
                   className="h-6 w-24 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-primary transition-all"
                 />
               </div>
@@ -156,8 +173,21 @@ export function ConversacionMobile() {
                 <Input 
                   value={logic.targetName} 
                   onChange={(e) => logic.setTargetName(e.target.value)} 
+                  onBlur={() => {
+                    if (logic.targetName && logic.targetName !== defaultTargetName) {
+                      toast({
+                        title: "¿Guardar nombre por defecto?",
+                        description: `¿Deseas que "${logic.targetName}" sea el nombre del invitado para futuras sesiones?`,
+                        action: (
+                          <Button variant="outline" size="sm" onClick={() => setDefaultTargetName(logic.targetName)}>
+                            Guardar
+                          </Button>
+                        ),
+                      });
+                    }
+                  }}
                   placeholder="Invitado"
-                  className="h-6 w-24 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-secondary transition-all text-left"
+                  className="h-6 w-24 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-secondary transition-all"
                 />
                 <Users className={cn("w-4 h-4 flex-shrink-0", !logic.isNativeTurn ? "text-secondary" : "text-white/30")} />
               </div>
