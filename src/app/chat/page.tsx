@@ -47,8 +47,15 @@ export default function KittenChat() {
       setIsVoiceActive(false);
       return;
     }
+
+    const langMapping: Record<string, string> = {
+      "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
+      "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
+      "Árabe": "ar-SA", "Ruso": "ru-RU"
+    };
+
     const recognition = new SpeechRecognition();
-    recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
+    recognition.lang = langMapping[nativeLanguage] || 'en-US';
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.onstart = () => setIsVoiceActive(true);
@@ -88,6 +95,32 @@ export default function KittenChat() {
       };
 
       setMessages(prev => [...prev, assistantMsg]);
+
+      // TTS para la respuesta del tutor
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel(); // Detener cualquier habla anterior
+        const utterance = new SpeechSynthesisUtterance(response.response);
+        
+        const langMapping: Record<string, string> = {
+          "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
+          "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
+          "Árabe": "ar-SA", "Ruso": "ru-RU"
+        };
+        // Kitten suele responder primariamente en el target language, o mezclado.
+        // Asignamos el idioma target para mejor pronunciación.
+        const langCode = langMapping[targetLanguage] || 'en-US';
+        utterance.lang = langCode;
+        utterance.rate = 0.95;
+
+        const voices = window.speechSynthesis.getVoices();
+        // Buscar una voz dulce/femenina para Kitten si es posible
+        const voice = voices.find(v => v.lang.startsWith(langCode.split('-')[0]) && /female|woman|zira|samantha|helena/i.test(v.name)) 
+                   || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
+        
+        if (voice) utterance.voice = voice;
+        window.speechSynthesis.speak(utterance);
+      }
+
     } catch (error) {
       console.error(error);
     } finally {

@@ -309,8 +309,14 @@ export function useConversacion() {
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
 
+    const langMapping: Record<string, string> = {
+      "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
+      "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
+      "Árabe": "ar-SA", "Ruso": "ru-RU"
+    };
+
     const currentLang = isNativeTurnRef.current ? nativeLangRef.current : targetLangRef.current;
-    recognition.lang = langMap[currentLang] || 'en-US';
+    recognition.lang = langMapping[currentLang] || 'en-US';
     
     // Grabación manual continua estricta
     recognition.continuous = true;
@@ -457,6 +463,8 @@ export function useConversacion() {
     } catch (error) {
       console.error("[SoftIA Engine] Error:", error);
       toast({ title: "Error de Motor", description: "Reintenta en un momento." });
+      setIsProcessing(false);
+      isProcessingRef.current = false;
     } finally {
       setIsProcessing(false);
       isProcessingRef.current = false;
