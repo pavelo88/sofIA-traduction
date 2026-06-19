@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/lib/store';
 import { translateConversation } from '@/ai/flows/conversation-translate';
+import { callDeepSeekBackup } from '@/ai/deepseekClient';
 import { toast } from '@/hooks/use-toast';
 
 export type ChatItem = {
@@ -15,8 +16,8 @@ export type ChatItem = {
 };
 
 /**
- * @summary Hook de lógica de negocio para Conversación Dual (Audio-First).
- * Implementa procesamiento directo de voz y ruteo inteligente de IA (Cloud vs Device).
+ * @summary Hook de lógica de negocio para Conversación Dual.
+ * Implementa enrutamiento inteligente entre Gemini, DeepSeek y Device.
  */
 export function useConversacion() {
   const { 
@@ -86,39 +87,46 @@ export function useConversacion() {
     try {
       let translatedText = "";
 
-      // Ruteo Dinámico de Inteligencia
-      if (aiEngineMode === 'cloud') {
+      // ENRUTAMIENTO TRI-MODAL DE INTELIGENCIA
+      if (aiEngineMode === 'gemini') {
         if (userCredits <= 0) {
           setIsProcessing(false);
           setIsProfileOpen(true);
           toast({
             title: "Créditos Agotados",
-            description: "No tienes créditos para usar la IA en la nube. Recarga o cambia a modo Dispositivo.",
+            description: "No tienes créditos para Gemini Cloud. Cambia a DeepSeek o Modo Dispositivo.",
             variant: "destructive"
           });
           return;
         }
-
         addCredits(-1);
-        const result = await translateConversation({
-          text,
-          fromLanguage: fromLang,
-          toLanguage: toLang
-        });
+        const result = await translateConversation({ text, fromLanguage: fromLang, toLanguage: toLang });
         translatedText = result.translatedText;
-      } else {
-        // Modo Dispositivo: Intento de uso de window.ai (Gemini Nano)
+      } 
+      else if (aiEngineMode === 'deepseek') {
+        // DeepSeek es más económico, consume menos créditos o créditos dedicados
+        if (userCredits <= 0) {
+          setIsProcessing(false);
+          setIsProfileOpen(true);
+          toast({ title: "Créditos Agotados", description: "Recarga para continuar usando DeepSeek.", variant: "destructive" });
+          return;
+        }
+        addCredits(-0.5); // DeepSeek cuesta la mitad de un crédito
+        const result = await callDeepSeekBackup(text, fromLang, toLang);
+        translatedText = result.translatedText;
+      }
+      else {
+        // Modo Dispositivo: window.ai (Gemini Nano)
         try {
-          // @ts-ignore - API experimental del navegador
+          // @ts-ignore
           if (window.ai && window.ai.languageModel) {
             // @ts-ignore
             const session = await window.ai.languageModel.create();
-            translatedText = await session.prompt(`Translate this text from ${fromLang} to ${toLang}. Output only the translation: ${text}`);
+            translatedText = await session.prompt(`Translate from ${fromLang} to ${toLang}: ${text}. Output only translation.`);
           } else {
-            // Fallback de demostración si window.ai no está disponible
-            translatedText = `[Device-Mode Fallback] Traduciendo de ${fromLang} a ${toLang}: ${text}`;
+            translatedText = `[Offline Fallback] ${text}`;
           }
-        } catch (localError) {
+        } catch (e) {
           translatedText = `[Offline Fallback] ${text}`;
         }
       }
@@ -134,8 +142,8 @@ export function useConversacion() {
       setHistory(prev => [newItem, ...prev]);
       speakText(translatedText, toLang);
     } catch (error) {
-      console.error("[SoftIA Engine] Fallo en procesamiento:", error);
-      toast({ title: "Falla de Traducción", description: "Error en la matriz de inteligencia.", variant: "destructive" });
+      console.error("[SoftIA Engine] Fallo en ruteo de IA:", error);
+      toast({ title: "Falla de Traducción", description: "Error en la matriz de inteligencia multicanal.", variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }

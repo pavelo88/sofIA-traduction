@@ -5,7 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 /**
  * @interface AppState
  * Estado global con persistencia híbrida (Firebase/LocalStorage).
- * Refactorización v6.0: Gestión de créditos, infraestructura de IA y control de UI.
+ * Refactorización v7.0: Triple motor de IA (Gemini, DeepSeek, Device).
  */
 
 export interface ConversationItem {
@@ -33,7 +33,7 @@ interface AppState {
   conversationHistory: ConversationItem[];
   
   // Infraestructura de IA y SaaS
-  aiEngineMode: 'cloud' | 'device';
+  aiEngineMode: 'gemini' | 'deepseek' | 'device';
   userCredits: number;
   isProfileOpen: boolean;
   
@@ -46,7 +46,7 @@ interface AppState {
   setUserVoiceGender: (gender: 'masculino' | 'femenino') => void;
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
   addConversationItem: (item: ConversationItem) => void;
-  setAiEngineMode: (mode: 'cloud' | 'device') => void;
+  setAiEngineMode: (mode: 'gemini' | 'deepseek' | 'device') => void;
   addCredits: (amount: number) => void;
   setIsProfileOpen: (open: boolean) => void;
 }
@@ -65,7 +65,7 @@ export const useStore = create<AppState>()(
       partnerVoiceGender: 'femenino',
       lastTranslation: null,
       conversationHistory: [],
-      aiEngineMode: 'cloud',
+      aiEngineMode: 'gemini',
       userCredits: 25,
       isProfileOpen: false,
 
