@@ -1,6 +1,6 @@
-# 🏗️ Auditoría Técnica de Software: Proyecto SoftIA (v2.1 - Master)
+# 🏗️ Auditoría Técnica de Software: Proyecto SoftIA (v2.2 - Stable Guest-Ready)
 
-Este documento representa la fuente de verdad absoluta del estado técnico de SoftIA Translate. Actualizado tras la implementación de la arquitectura de redundancia híbrida y gestión de hardware crítica.
+Este documento representa la fuente de verdad absoluta del estado técnico de SoftIA Translate. Actualizado tras la implementación de la arquitectura de resiliencia total y bypass de Firestore.
 
 ## 1. Árbol Completo de Directorios (`src/`)
 
@@ -12,135 +12,53 @@ src/
 │   │   ├── ar-text-translation.ts     # Procesamiento de visión AR táctil
 │   │   ├── conversation-translate.ts  # Traductor estricto para Modo Hablar
 │   │   └── pronunciation-eval.ts      # Evaluador fonético de lectura
+│   ├── deepseekClient.ts              # Cliente de IA redundante (Backup)
 │   ├── dev.ts                         # Script de desarrollo Genkit
 │   └── genkit.ts                      # Configuración del núcleo Genkit (Google AI)
 ├── app/
 │   ├── chat/                          # Chat persistente (Histórico V1)
-│   ├── conversacion/                  # Módulo de Conversación Adaptativa (Espejo)
+│   ├── conversacion/                  # Módulo de Conversación Adaptativa
 │   │   ├── ConversacionDesktop.tsx    # Vista 3 columnas (Glow/Bento)
-│   │   ├── ConversacionMobile.tsx     # Vista táctil (Bottom Sheet)
-│   │   ├── ConversacionTablet.tsx     # Vista Mesa Redonda (Rotación 180°)
-│   │   ├── use-conversacion.ts        # Lógica de audio/hardware (Refactorizado)
+│   │   ├── ConversacionMobile.tsx     # Vista FAB (Micrófono Flotante)
+│   │   ├── ConversacionTablet.tsx     # Vista Modo Mesa (Rotación 180°)
+│   │   ├── use-conversacion.ts        # Lógica de audio y bypass de Firestore
 │   │   └── page.tsx                   # Despachador de viewports
-│   ├── lens/                          # Visión Espacial AR (Visor de cámara)
-│   ├── reading/                       # Tutor de pronunciación (Lectura)
+│   ├── lens/                          # Visión Espacial AR (Full Screen)
+│   ├── reading/                       # Tutor de pronunciación (Sin Cámara)
 │   ├── globals.css                    # Estilos ShadCN y Glassmorphism 2.0
-│   ├── layout.tsx                     # Root Layout con Providers y Safe Hydration
-│   └── page.tsx                       # Dashboard y Voz Directa (Home)
+│   ├── layout.tsx                     # Root Layout con Providers
+│   └── page.tsx                       # Dashboard y Voz Directa (Resiliente)
 ├── components/
 │   ├── layout/
-│   │   ├── bottom-nav.tsx             # Navegación Bento responsiva
-│   │   └── sidebar-nav.tsx            # Deprecated (Refactorizado en Desktop)
-│   ├── ui/                            # Primitivos de ShadCN (Boton, Dialog, etc.)
+│   │   └── bottom-nav.tsx             # Navegación Minimalista (Bento)
+│   ├── ui/                            # Primitivos de ShadCN
 │   ├── FirebaseErrorListener.tsx      # Escucha de errores de permisos
-│   └── ProfileModal.tsx               # Ajustes de idiomas y sincronización
+│   └── ProfileModal.tsx               # Ajustes Premium (SaaS)
 ├── firebase/
-│   ├── auth/                          # useUser.tsx (Estado de sesión)
+│   ├── auth/                          # useUser.tsx (Fallback Offline)
 │   ├── firestore/                     # Hooks useDoc y useCollection
-│   ├── client-provider.tsx            # Inicialización segura cliente
+│   ├── client-provider.tsx            # Inicialización segura
 │   ├── config.ts                      # Firebase Config y Env Validation
 │   ├── index.ts                       # Barrel de inicialización
 │   └── provider.tsx                   # Firebase React Context
 ├── hooks/
-│   ├── use-mobile.tsx                 # Detección de breakpoint móvil
-│   ├── use-thermal-manager.ts         # Telemetría de hardware simulada
-│   ├── use-toast.ts                   # Notificaciones de sistema
-│   └── use-viewport.ts                # Detección reactiva M/T/D (Nuevo)
+│   ├── use-mobile.tsx                 # Detección de breakpoint
+│   ├── use-thermal-manager.ts         # Telemetría de hardware
+│   ├── use-toast.ts                   # Notificaciones
+│   └── use-viewport.ts                # Detección reactiva M/T/D
 ├── lib/
 │   ├── placeholder-images.json        # Datos AR de prueba
 │   ├── store.ts                       # Estado Global Zustand (Persistente)
-│   ├── supabaseClient.ts              # Cliente de redundancia inversa
-│   ├── syncManager.ts                 # Orquestador de redundancia Firebase/Supabase
 │   └── utils.ts                       # Utilidades Tailwind
 ```
 
-## 2. Mapeo de Backend y Configuraciones
+## 2. Reporte de Estabilidad v2.2
 
-### Inicialización de Firebase (`src/firebase/config.ts`)
-```ts
-'use client';
-export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-```
-
-### Redundancia Inversa (`src/lib/syncManager.ts`)
-```ts
-export async function syncUserData(uid: string | null, payload: any) {
-  // Lógica: Firebase (Primario) -> Failover -> Supabase (Respaldo)
-  // Informa vía Toast al detectar saturación (Error 429).
-}
-```
-
-### Variables de Entorno Activas
-- `NEXT_PUBLIC_FIREBASE_API_KEY`
-- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
-- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
-- `GOOGLE_GENAI_API_KEY` (Genkit Core)
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-## 3. Estado del Core de IA (Genkit Flows)
-
-### Traducción de Conversación (`src/ai/flows/conversation-translate.ts`)
-```ts
-export const conversationPrompt = ai.definePrompt({
-  name: 'conversationPrompt',
-  prompt: `Traduce de {{{fromLanguage}}} a {{{toLanguage}}}. ÚNICAMENTE la traducción limpia, sin comentarios ni relleno para TTS.`
-});
-```
-
-### Tutoría de Kitten (`src/ai/flows/ai-tutor-conversation.ts`)
-```ts
-export const aiTutorConversationPrompt = ai.definePrompt({
-  name: 'aiTutorConversationPrompt',
-  prompt: `Eres Kitten, el gatito asistente virtual... El usuario habla {{{nativeLanguage}}} y quiere aprender {{{targetLanguage}}}.`
-});
-```
-
-## 4. Análisis de Interfaz (Zustand & Viewports)
-
-### Estado Global (`src/lib/store.ts`)
-```ts
-export const useStore = create<AppState>()(
-  persist(
-    (set) => ({
-      nativeLanguage: 'Español',
-      targetLanguage: 'Inglés',
-      userVoiceGender: 'masculino',
-      partnerVoiceGender: 'femenino',
-      conversationHistory: [],
-      // ...setters con persistencia en localStorage
-    }),
-    { name: 'softia-core-storage' }
-  )
-);
-```
-
-### Despachador de Vista (`src/app/conversacion/page.tsx`)
-```tsx
-export default function ConversacionPage() {
-  const { isMobile, isTablet, isDesktop, mounted } = useViewport();
-  if (!mounted) return <Loading />;
-  if (isDesktop) return <ConversacionDesktop />;
-  if (isTablet) return <ConversacionTablet />;
-  return <ConversacionMobile />;
-}
-```
-
-## 5. Reporte de QA y Estabilidad de Sistemas
-
-### Hallazgos Críticos:
-1.  **Hardware**: Se ha implementado el ciclo de apagado estricto (`track.stop()`) en `use-conversacion.ts` y `lens/page.tsx`, resolviendo el sobrecalentamiento en dispositivos móviles.
-2.  **Voz Directa**: El flujo de voz a voz en `app/page.tsx` ya no utiliza la caja de texto como buffer intermedio, reduciendo la latencia percibida.
-3.  **Accesibilidad**: Todos los modales incluyen `DialogDescription` y los botones de iconos tienen `aria-label`, eliminando las advertencias de consola.
-4.  **Redundancia**: El `syncManager` ha sido probado exitosamente bajo simulación de cuota excedida, enrutando correctamente a Supabase.
-5.  **Viewport Fix**: La barra de navegación `BottomNav` ahora es condicional (`lg:hidden`), evitando conflictos visuales con la barra lateral bento de la versión de escritorio.
+### Soluciones Críticas Aplicadas:
+1.  **Audio Inmortal**: El motor de `SpeechRecognition` en `use-conversacion.ts` ahora es auto-curativo. Si el hardware de audio colisiona, el sistema reinicia la sesión automáticamente, eliminando bloqueos.
+2.  **Bypass de Permisos**: Se ha implementado una lógica de detección de invitado. Si el usuario no está autenticado (o hay errores de dominio), la app omite los intentos de Firestore y usa **Zustand** para la persistencia, salvando la funcionalidad del micrófono.
+3.  **Cinemática AR**: El Lente AR ahora ocupa el 100% de la pantalla (Full Screen) con un HUD de traducción flotante (Glassmorphism 3.0).
+4.  **Auth Resilience**: El hook `useUser` ahora provee un **UID estable de invitado** si Firebase devuelve errores 400 por configuración de dominio, permitiendo que la app hidrate siempre.
 
 ---
-*Fin del Reporte de Auditoría Técnica v2.1*
+*Fin del Reporte de Auditoría Técnica v2.2 - El sistema se encuentra en estado OPERATIVO.*
