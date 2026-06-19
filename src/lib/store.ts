@@ -31,6 +31,8 @@ interface AppState {
   learningProgress: number;
   nativeLanguage: string;
   targetLanguage: string;
+  nativeName: string;
+  targetName: string;
   userVoiceGender: 'masculino' | 'femenino';
   partnerVoiceGender: 'masculino' | 'femenino';
   lastTranslation: {
@@ -51,6 +53,8 @@ interface AppState {
   incrementProgress: (amount: number) => void;
   setNativeLanguage: (lang: string) => void;
   setTargetLanguage: (lang: string) => void;
+  setNativeName: (name: string) => void;
+  setTargetName: (name: string) => void;
   setUserVoiceGender: (gender: 'masculino' | 'femenino') => void;
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
   addConversationItem: (item: ConversationItem) => void;
@@ -71,6 +75,8 @@ export const useStore = create<AppState>()(
       learningProgress: 45,
       nativeLanguage: 'Español',
       targetLanguage: 'Inglés',
+      nativeName: 'Personal',
+      targetName: 'Invitado',
       userVoiceGender: 'masculino',
       partnerVoiceGender: 'femenino',
       lastTranslation: null,
@@ -100,6 +106,8 @@ export const useStore = create<AppState>()(
 
       setNativeLanguage: (lang) => set({ nativeLanguage: lang }),
       setTargetLanguage: (lang) => set({ targetLanguage: lang }),
+      setNativeName: (name) => set({ nativeName: name }),
+      setTargetName: (name) => set({ targetName: name }),
       setUserVoiceGender: (gender) => set({ userVoiceGender: gender }),
       setPartnerVoiceGender: (gender) => set({ partnerVoiceGender: gender }),
       addConversationItem: (item) => set((state) => ({

@@ -31,16 +31,21 @@ const aiTutorConversationPrompt = ai.definePrompt({
   name: 'aiTutorConversationPrompt',
   input: { schema: AITutorConversationInputSchema },
   output: { schema: AITutorConversationOutputSchema },
-  prompt: `Eres Kitten, el gatito asistente virtual de SoftIA. Eres un tutor de idiomas extremadamente tierno, inteligente y bilingüe.
+  prompt: `Eres Kitten, un tierno y amigable gatito tutor de idiomas.
+Tu misión es ayudar al usuario a practicar conversaciones en {{targetLanguage}}.
+El usuario habla en {{nativeLanguage}}.
 
-El usuario habla nativamente {{{nativeLanguage}}} y desea aprender o practicar {{{targetLanguage}}}.
+Instrucciones:
+1. Sé cálido, entusiasta y muy tierno.
+2. Anima al usuario a traducir frases de la vida real al idioma objetivo.
+3. Corrige errores gentilmente y siempre celebra sus aciertos.
+4. Intercala la enseñanza. Explica en {{nativeLanguage}} pero da los ejemplos en {{targetLanguage}}.
+5. IMPORTANTE PARA LA SÍNTESIS DE VOZ: SIEMPRE debes encerrar CUALQUIER texto, palabra o frase que esté en {{targetLanguage}} entre las etiquetas <lang> y </lang>. 
+   Ejemplo Correcto: ¡Hola! ¿Cómo dirías <lang>I am very happy</lang> en inglés?
+   Ejemplo Correcto: ¡Excelente! La palabra es <lang>cat</lang>.
+   Nunca uses <lang> para palabras en {{nativeLanguage}}.
 
-Tus objetivos son:
-1. Responder de forma dinámica e inteligente. Debes usar tanto {{{nativeLanguage}}} como {{{targetLanguage}}}.
-2. Si el usuario te habla en {{{nativeLanguage}}}, respóndele saludando, explicando las cosas o haciendo preguntas en {{{nativeLanguage}}} (para que te entienda), pero incluye frases u oraciones clave de práctica en {{{targetLanguage}}} para enseñarle.
-3. Si el usuario te habla en {{{targetLanguage}}}, felicítalo, responde en {{{targetLanguage}}} para mantener la conversación, y luego explícale brevemente en {{{nativeLanguage}}} lo que significa o cómo puede mejorar.
-4. Explica siempre cómo interactuar contigo en el idioma nativo del usuario ({{{nativeLanguage}}}).
-5. Sé adorable (¡Miau!), usa emojis y mantén tus respuestas concisas pero altamente educativas.
+Kitten dice: ¡Miau! ¡Hagamos que aprender sea ronroneante! 🐱🚀
 
 Si el usuario comete errores en {{{targetLanguage}}}, detecta el error y descríbelo en el campo 'evaluation' en {{{nativeLanguage}}}, y pon la sugerencia corregida en el campo 'suggestion'.
 
@@ -57,9 +62,18 @@ Mensaje actual: {{{message}}}`
 export async function aiTutorConversation(
   input: AITutorConversationInput
 ): Promise<AITutorConversationOutput> {
-  const { output } = await aiTutorConversationPrompt(input);
-  if (!output) {
-    throw new Error('Kitten se distrajo persiguiendo un asteroide.');
+  try {
+    const { output } = await aiTutorConversationPrompt(input);
+    if (!output) {
+      return { response: "¡Miau! Me distraje persiguiendo un láser espacial. ¿Puedes repetirlo?" };
+    }
+    return output;
+  } catch (error: any) {
+    console.error("[SoftIA Genkit] Error:", error.message || error);
+    return { 
+      response: "¡Miau! Mi conexión espacial está fallando (Asegúrate de configurar GEMINI_API_KEY). ¿Intentamos de nuevo?",
+      evaluation: "Error de conexión",
+      suggestion: "Revisa tu API Key de Gemini"
+    };
   }
-  return output;
 }

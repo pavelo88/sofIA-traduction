@@ -106,7 +106,15 @@ export function useConversacion() {
     conversationHistory,
     addConversationItem,
     saveAndClearConversation,
-    clearConversation
+    clearConversation,
+    nativeName,
+    targetName,
+    setNativeName,
+    setTargetName,
+    setNativeLanguage,
+    setTargetLanguage,
+    setUserVoiceGender,
+    setPartnerVoiceGender
   } = useStore();
 
   const { user } = useUser();
@@ -128,6 +136,8 @@ export function useConversacion() {
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(12));
   // Vista previa en tiempo real de lo que se está transcribiendo
   const [liveTranscript, setLiveTranscript] = useState('');
+  // Temporizador de grabación (en segundos)
+  const [recordingTime, setRecordingTime] = useState(0);
 
   // Refs para acceder a los valores actuales dentro de callbacks sin re-crear de forma stale
   const streamRef = useRef<MediaStream | null>(null);
@@ -148,6 +158,8 @@ export function useConversacion() {
   const animationFrameRef = useRef<number | null>(null);
   const lastSoundTimeRef = useRef<number>(0);
   const currentTranscriptRef = useRef<string>('');
+  const globalAccumulatedTranscriptRef = useRef<string>('');
+  const recordingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Mantener refs sincronizadas con el estado
   useEffect(() => { isNativeTurnRef.current = isNativeTurn; }, [isNativeTurn]);
@@ -166,51 +178,14 @@ export function useConversacion() {
   };
 
   /**
-   * Alerta sonora de silencio de 5 segundos.
+   * Detiene el temporizador de grabación.
    */
-  const triggerSilenceAlert = useCallback(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    
-    console.log("[SoftIA Voice] Alerta de silencio de 5 segundos disparada.");
-
-    // Detener la escucha temporalmente para no grabar la propia voz de la alerta
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch (e) {}
+  const stopRecordingTimer = () => {
+    if (recordingTimerIntervalRef.current) {
+      clearInterval(recordingTimerIntervalRef.current);
+      recordingTimerIntervalRef.current = null;
     }
-
-    // Construir alerta en el idioma del hablante actual
-    const currentLangName = isNativeTurnRef.current ? nativeLangRef.current : targetLangRef.current;
-    const currentLangCode = langMap[currentLangName] || 'en-US';
-    const alertMessages: Record<string, string> = {
-      'es': '¿Deseas continuar?',
-      'en': 'Do you want to continue?',
-      'fr': 'Voulez-vous continuer?',
-      'de': 'Möchten Sie fortfahren?',
-      'pt': 'Deseja continuar?',
-      'it': 'Vuoi continuare?',
-      'zh': '你想继续吗？',
-      'ja': '続けますか？',
-      'ar': 'هل تريد الاستمرار؟',
-      'ru': 'Хотите продолжить?'
-    };
-    const langPrefix = currentLangCode.split('-')[0];
-    const alertText = alertMessages[langPrefix] || alertMessages['en'];
-
-    const alertUtterance = new SpeechSynthesisUtterance(alertText);
-    alertUtterance.lang = currentLangCode;
-    alertUtterance.rate = 1.0;
-
-    alertUtterance.onend = () => {
-      // Si el usuario no presionó "Detener" en este lapso, reanudar grabación
-      if (isRecordingRef.current) {
-        startListening();
-      }
-    };
-
-    window.speechSynthesis.speak(alertUtterance);
-  }, []);
+  };
 
   /**
    * Inicia el analizador de volumen para la onda visual y el check de silencio.
@@ -261,17 +236,6 @@ export function useConversacion() {
         // Mapear a escala visual
         const normalized = newLevels.map(v => Math.min(100, Math.max(12, (v / 255) * 100 + Math.random() * 8)));
         setAudioLevels(normalized);
-
-        // Comprobación de silencio
-        const avgVolume = sumTotal / 20;
-        if (avgVolume < 6) {
-          if (lastSoundTimeRef.current > 0 && Date.now() - lastSoundTimeRef.current > 5000) {
-            triggerSilenceAlert();
-            lastSoundTimeRef.current = Date.now(); 
-          }
-        } else {
-          lastSoundTimeRef.current = Date.now(); 
-        }
       };
 
       animationFrameRef.current = requestAnimationFrame(checkVolume);
@@ -353,8 +317,23 @@ export function useConversacion() {
       recognition.onstart = () => {
         setIsRecording(true);
         startAudioAnalyzer();
-        setLiveTranscript('');
+        setLiveTranscript(globalAccumulatedTranscriptRef.current);
         currentTranscriptRef.current = '';
+        
+        // Iniciar temporizador si no está corriendo
+        if (!recordingTimerIntervalRef.current) {
+          setRecordingTime(0);
+          recordingTimerIntervalRef.current = setInterval(() => {
+            setRecordingTime((prev) => {
+              if (prev >= 119) {
+                // Detener automáticamente al llegar al límite (120s)
+                setTimeout(() => toggleSession(), 0);
+                return 120;
+              }
+              return prev + 1;
+            });
+          }, 1000);
+        }
       };
 
       recognition.onresult = (event: any) => {
@@ -364,18 +343,22 @@ export function useConversacion() {
         }
         const finalVal = accumulated.trim();
         currentTranscriptRef.current = finalVal;
-        setLiveTranscript(finalVal);
+        setLiveTranscript((globalAccumulatedTranscriptRef.current + ' ' + finalVal).trim());
       };
 
       recognition.onend = () => {
         if (isRecordingRef.current) {
           // El navegador detuvo el micro antes de tiempo
-          console.log("[SoftIA Voice] Micro detenido por el navegador. Reiniciando...");
-          setTimeout(() => startListening(), 200);
+          console.log("[SoftIA Voice] Micro detenido por el navegador. Reiniciando de forma invisible...");
+          // Guardar lo recolectado en esta mini-sesión al buffer global
+          globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+          currentTranscriptRef.current = '';
+          setTimeout(() => startListening(), 50);
           return;
         }
         setIsRecording(false);
         stopAudioAnalyzer();
+        stopRecordingTimer();
       };
 
       recognition.onerror = (e: any) => {
@@ -405,7 +388,7 @@ export function useConversacion() {
         }, 300);
       }
     }, 150);
-  }, [triggerSilenceAlert]);
+  }, []);
 
   /**
    * Inicia síntesis de voz y cambia de turno pero NO auto-inicia el micrófono.
@@ -413,7 +396,11 @@ export function useConversacion() {
    */
   const speakAndAutoTurn = useCallback((text: string, langName: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) {
-      setIsNativeTurn(prev => !prev);
+      setIsNativeTurn(prev => {
+        const next = !prev;
+        isNativeTurnRef.current = next;
+        return next;
+      });
       return;
     }
 
@@ -441,14 +428,22 @@ export function useConversacion() {
     utterance.onend = () => {
       setIsSpeaking(false);
       // Alternar turno para el siguiente hablante
-      setIsNativeTurn(prev => !prev);
+      setIsNativeTurn(prev => {
+        const next = !prev;
+        isNativeTurnRef.current = next;
+        return next;
+      });
       // NO llamar a startListening() de manera automática para el auto-turno
       console.log("[SoftIA Voice] Síntesis finalizada. Esperando activación manual del micrófono.");
     };
 
     utterance.onerror = () => {
       setIsSpeaking(false);
-      setIsNativeTurn(prev => !prev);
+      setIsNativeTurn(prev => {
+        const next = !prev;
+        isNativeTurnRef.current = next;
+        return next;
+      });
     };
 
     window.speechSynthesis.speak(utterance);
@@ -514,6 +509,7 @@ export function useConversacion() {
   const toggleSession = useCallback(() => {
     if (isRecordingRef.current) {
       isRecordingRef.current = false; // Forzar estado para evitar auto-reinicio
+      stopRecordingTimer();
       // 1. Apagar micrófono
       if (recognitionRef.current) {
         try {
@@ -526,13 +522,18 @@ export function useConversacion() {
       setIsRecording(false);
       stopAudioAnalyzer();
 
-      // 2. Procesar traducción si se obtuvo texto
-      const textToTranslate = currentTranscriptRef.current;
+      // 2. Procesar traducción si se obtuvo texto combinando el buffer global y el actual
+      const textToTranslate = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
       setLiveTranscript('');
-      if (textToTranslate.trim()) {
+      globalAccumulatedTranscriptRef.current = '';
+      currentTranscriptRef.current = '';
+      
+      if (textToTranslate) {
         handleTranslationInternal(textToTranslate);
       }
     } else {
+      globalAccumulatedTranscriptRef.current = '';
+      currentTranscriptRef.current = '';
       startListening();
     }
   }, [startListening]);
@@ -554,7 +555,10 @@ export function useConversacion() {
     setIsRecording(false);
     setIsSpeaking(false);
     stopAudioAnalyzer();
+    stopRecordingTimer();
     setLiveTranscript('');
+    globalAccumulatedTranscriptRef.current = '';
+    currentTranscriptRef.current = '';
     setIsNativeTurn(prev => {
       const next = !prev;
       isNativeTurnRef.current = next; // Force immediate sync to avoid race conditions
@@ -573,6 +577,7 @@ export function useConversacion() {
         window.speechSynthesis.cancel();
       }
       stopAudioAnalyzer();
+      stopRecordingTimer();
     };
   }, []);
 
@@ -594,9 +599,10 @@ export function useConversacion() {
     isNativeTurn, isRecording, isProcessing, isSpeaking,
     isCameraActive, setIsCameraActive,
     history, toggleSession, toggleTurn, startListening, streamRef,
-    nativeLanguage, targetLanguage,
-    userVoiceGender, partnerVoiceGender,
-    audioLevels, liveTranscript,
+    nativeLanguage, targetLanguage, nativeName, targetName,
+    setNativeLanguage, setTargetLanguage, setNativeName, setTargetName,
+    userVoiceGender, partnerVoiceGender, setUserVoiceGender, setPartnerVoiceGender,
+    audioLevels, liveTranscript, recordingTime,
     saveAndClearConversation, clearConversation
   };
 }

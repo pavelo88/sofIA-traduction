@@ -26,9 +26,25 @@ export default function KittenChat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const { nativeLanguage, targetLanguage, conversationHistory } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const globalAccumulatedTranscriptRef = useRef<string>('');
+  const currentTranscriptRef = useRef<string>('');
+  const recordingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isVoiceActiveRef = useRef(isVoiceActive);
+
+  useEffect(() => {
+    isVoiceActiveRef.current = isVoiceActive;
+  }, [isVoiceActive]);
+
+  const stopRecordingTimer = () => {
+    if (recordingTimerIntervalRef.current) {
+      clearInterval(recordingTimerIntervalRef.current);
+      recordingTimerIntervalRef.current = null;
+    }
+  };
 
   // Auto-scroll al último mensaje
   useEffect(() => {
@@ -43,12 +59,29 @@ export default function KittenChat() {
       toast({ title: "Voz no disponible", description: "Tu navegador no soporta reconocimiento de voz." });
       return;
     }
-    if (isVoiceActive && recognitionRef.current) {
-      recognitionRef.current.stop();
+    
+    if (isVoiceActiveRef.current) {
+      isVoiceActiveRef.current = false;
+      stopRecordingTimer();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+        recognitionRef.current = null;
+      }
       setIsVoiceActive(false);
+      
+      const textToSend = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+      globalAccumulatedTranscriptRef.current = '';
+      currentTranscriptRef.current = '';
+      setInput('');
+      if (textToSend) handleSend(textToSend);
       return;
     }
 
+    startListeningKitten();
+  };
+
+  const startListeningKitten = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const langMapping: Record<string, string> = {
       "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
       "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
@@ -57,17 +90,54 @@ export default function KittenChat() {
 
     const recognition = new SpeechRecognition();
     recognition.lang = langMapping[nativeLanguage] || 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onstart = () => setIsVoiceActive(true);
-    recognition.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      if (transcript) handleSend(transcript);
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    
+    recognition.onstart = () => {
+      setIsVoiceActive(true);
+      currentTranscriptRef.current = '';
+      if (!recordingTimerIntervalRef.current) {
+        setRecordingTime(0);
+        recordingTimerIntervalRef.current = setInterval(() => {
+          setRecordingTime((prev) => {
+            if (prev >= 119) {
+              setTimeout(() => toggleVoice(), 0);
+              return 120;
+            }
+            return prev + 1;
+          });
+        }, 1000);
+      }
     };
-    recognition.onend = () => setIsVoiceActive(false);
-    recognition.onerror = () => setIsVoiceActive(false);
+    
+    recognition.onresult = (e: any) => {
+      let accumulated = '';
+      for (let i = 0; i < e.results.length; i++) {
+        accumulated += e.results[i][0].transcript + ' ';
+      }
+      currentTranscriptRef.current = accumulated.trim();
+      setInput((globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim());
+    };
+    
+    recognition.onend = () => {
+      if (isVoiceActiveRef.current) {
+        globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+        currentTranscriptRef.current = '';
+        setTimeout(() => startListeningKitten(), 50);
+        return;
+      }
+      setIsVoiceActive(false);
+      stopRecordingTimer();
+    };
+    
+    recognition.onerror = () => {
+      // Ignorar errores silenciosos, onend reiniciará
+    };
+    
     recognitionRef.current = recognition;
-    recognition.start();
+    try { recognition.start(); } catch (e) {
+      setTimeout(() => { try { recognition.start(); } catch (e) {} }, 300);
+    }
   };
 
   const handleSend = async (textOverride?: string, isHidden: boolean = false) => {
@@ -97,30 +167,16 @@ export default function KittenChat() {
 
       setMessages(prev => [...prev, assistantMsg]);
 
-      // TTS para la respuesta del tutor
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel(); // Detener cualquier habla anterior
-        const utterance = new SpeechSynthesisUtterance(response.response);
-        
-        const langMapping: Record<string, string> = {
-          "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
-          "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
-          "Árabe": "ar-SA", "Ruso": "ru-RU"
-        };
-        // Kitten suele responder primariamente en el target language, o mezclado.
-        // Asignamos el idioma target para mejor pronunciación.
-        const langCode = langMapping[targetLanguage] || 'en-US';
-        utterance.lang = langCode;
-        utterance.rate = 0.95;
-
-        const voices = window.speechSynthesis.getVoices();
-        // Buscar una voz dulce/femenina para Kitten si es posible
-        const voice = voices.find(v => v.lang.startsWith(langCode.split('-')[0]) && /female|woman|zira|samantha|helena/i.test(v.name)) 
-                   || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
-        
-        if (voice) utterance.voice = voice;
-        window.speechSynthesis.speak(utterance);
-      }
+      // TTS para la respuesta del tutor (Mixed Language)
+      import('@/lib/voice/mixed-speaker').then(({ speakMixedText }) => {
+        speakMixedText(
+          response.response,
+          nativeLanguage,
+          targetLanguage,
+          'femenino', // Native voice gender (Kitten is female/sweet)
+          'femenino'  // Target voice gender (Kitten is female/sweet)
+        );
+      });
 
     } catch (error) {
       console.error(error);
@@ -172,7 +228,7 @@ export default function KittenChat() {
                       ? 'bg-secondary text-secondary-foreground rounded-tr-none' 
                       : 'bg-white/5 text-white border border-white/10 rounded-tl-none'
                   }`}>
-                    {msg.content}
+                    {msg.content.replace(/<\/?lang>/g, '')}
                   </div>
 
                   {msg.evaluation && (
@@ -200,13 +256,21 @@ export default function KittenChat() {
         </div>
 
         <div className="p-6 border-t border-white/5 bg-white/5 flex gap-3">
-          <Input 
-            placeholder={isVoiceActive ? "Kitten te escucha..." : "Escribe o habla con Kitten..."}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            className="bg-background/50 border-white/10 h-14 rounded-2xl focus-visible:ring-primary text-white"
-          />
+          <div className="relative flex-1">
+            {isVoiceActive && (
+              <div className="absolute -top-10 right-0 flex items-center gap-2 bg-rose-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-neon-rose">
+                <span>Grabando:</span>
+                <span className="font-mono">{Math.floor(recordingTime / 60).toString().padStart(2, '0')}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
+              </div>
+            )}
+            <Input 
+              placeholder={isVoiceActive ? "Kitten te escucha..." : "Escribe o habla con Kitten..."}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              className="bg-background/50 border-white/10 h-14 rounded-2xl focus-visible:ring-primary text-white w-full"
+            />
+          </div>
           <Button
             onClick={toggleVoice}
             disabled={isLoading}

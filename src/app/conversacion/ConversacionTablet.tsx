@@ -21,6 +21,14 @@ import { Input } from "@/components/ui/input";
 export function ConversacionTablet() {
   const logic = useConversacion();
   const [isTableModeActive, setIsTableModeActive] = useState(false);
+  
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const languages = ['Español', 'Inglés', 'Francés', 'Alemán', 'Portugués', 'Italiano', 'Chino', 'Japonés', 'Árabe', 'Ruso'];
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
 
@@ -86,11 +94,35 @@ export function ConversacionTablet() {
           className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-start border transition-colors cursor-pointer hover:bg-primary/[0.03] min-h-0", logic.isNativeTurn ? "border-primary/40 bg-gradient-to-br from-primary/10 to-transparent shadow-neon-primary" : "border-white/5 bg-white/[0.02]")}
         >
           <div className="flex items-center gap-4 mb-6">
-            <User className={cn("w-8 h-8", logic.isNativeTurn ? "text-primary" : "text-white/40")} />
-            <span className="text-xs uppercase font-headline font-bold text-white/50">Tú (Local)</span>
+            <User className={cn("w-8 h-8 flex-shrink-0", logic.isNativeTurn ? "text-primary" : "text-white/40")} />
+            <div className="flex flex-col gap-1 w-full">
+              <Input 
+                value={logic.nativeName} 
+                onChange={(e) => logic.setNativeName(e.target.value)} 
+                placeholder="Personal"
+                className="h-8 w-40 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-xs font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-primary transition-all"
+              />
+              <div className="flex gap-2 mt-1">
+                <select 
+                  value={logic.nativeLanguage} 
+                  onChange={e => logic.setNativeLanguage(e.target.value)} 
+                  className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                >
+                  {languages.map(l => <option key={l} value={l} className="bg-zinc-900 text-white">{l}</option>)}
+                </select>
+                <select 
+                  value={logic.userVoiceGender} 
+                  onChange={e => logic.setUserVoiceGender(e.target.value as any)} 
+                  className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                >
+                  <option value="masculino" className="bg-zinc-900 text-white">Masc</option>
+                  <option value="femenino" className="bg-zinc-900 text-white">Fem</option>
+                </select>
+              </div>
+            </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
+          <div className="h-[300px] overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-2">
             {chronologicalHistory.length === 0 ? (
               <p className="text-2xl font-headline font-bold text-white/30 italic">Toca el micrófono para empezar a hablar...</p>
             ) : (
@@ -100,7 +132,7 @@ export function ConversacionTablet() {
                 return (
                   <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                     <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
-                      {isSelf ? labels.self : labels.other}
+                      {isSelf ? (logic.nativeName || 'Personal').toUpperCase() + ':' : (logic.targetName || 'Invitado').toUpperCase() + ':'}
                     </span>
                     <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                   </div>
@@ -127,12 +159,36 @@ export function ConversacionTablet() {
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
           className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-start border transition-colors items-end text-right cursor-pointer hover:bg-secondary/[0.03] min-h-0", !logic.isNativeTurn ? "border-secondary/40 bg-gradient-to-br from-secondary/10 to-transparent shadow-neon-secondary" : "border-white/5 bg-white/[0.02]", isTableModeActive && "rotate-180")}
         >
-          <div className="flex items-center gap-4 mb-6">
-            <span className="text-xs uppercase font-headline font-bold text-white/50">Invitado</span>
-            <Users className={cn("w-8 h-8", !logic.isNativeTurn ? "text-secondary" : "text-white/40")} />
+          <div className="flex items-center gap-4 mb-6 justify-end">
+            <div className="flex flex-col gap-1 w-full items-end text-right">
+              <Input 
+                value={logic.targetName} 
+                onChange={(e) => logic.setTargetName(e.target.value)} 
+                placeholder="Invitado"
+                className="h-8 w-40 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-xs font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-secondary transition-all text-right"
+              />
+              <div className="flex gap-2 mt-1 justify-end">
+                <select 
+                  value={logic.targetLanguage} 
+                  onChange={e => logic.setTargetLanguage(e.target.value)} 
+                  className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                >
+                  {languages.map(l => <option key={l} value={l} className="bg-zinc-900 text-white">{l}</option>)}
+                </select>
+                <select 
+                  value={logic.partnerVoiceGender} 
+                  onChange={e => logic.setPartnerVoiceGender(e.target.value as any)} 
+                  className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                >
+                  <option value="masculino" className="bg-zinc-900 text-white">Masc</option>
+                  <option value="femenino" className="bg-zinc-900 text-white">Fem</option>
+                </select>
+              </div>
+            </div>
+            <Users className={cn("w-8 h-8 flex-shrink-0", !logic.isNativeTurn ? "text-secondary" : "text-white/40")} />
           </div>
           
-          <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
+          <div className="h-[300px] overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-2">
             {chronologicalHistory.length === 0 ? (
               <p className="text-2xl font-headline font-bold text-white/30 italic">Esperando inicio...</p>
             ) : (
@@ -142,7 +198,7 @@ export function ConversacionTablet() {
                 return (
                   <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                     <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
-                      {isSelf ? labels.self : labels.other}
+                      {isSelf ? (logic.targetName || 'Invitado').toUpperCase() + ':' : (logic.nativeName || 'Personal').toUpperCase() + ':'}
                     </span>
                     <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                   </div>
@@ -172,21 +228,37 @@ export function ConversacionTablet() {
           </motion.div>
         </AnimatePresence>
 
-        {/* VISOR DE AUDIO ESTILO WHATSAPP */}
+        {/* VISOR DE AUDIO Y TEMPORIZADOR */}
         {logic.isRecording && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            className="flex items-end justify-center gap-[3px] h-9 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary mb-2"
+            className="flex items-center gap-4 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary mb-2"
           >
-            {logic.audioLevels.map((level, i) => (
-              <div 
-                key={i} 
-                className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
-                style={{ height: `${level}%` }}
-              />
-            ))}
+            <div className="flex flex-col items-center">
+              <span className="text-[8px] text-white/50 uppercase tracking-widest font-bold">Transcurrido</span>
+              <span className="text-rose-400 font-mono text-sm font-bold">{formatTime(logic.recordingTime)}</span>
+            </div>
+            
+            <div className="w-px h-6 bg-white/20"></div>
+            
+            <div className="flex items-end justify-center gap-[3px] h-6">
+              {logic.audioLevels.map((level, i) => (
+                <div 
+                  key={i} 
+                  className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
+                  style={{ height: `${level}%` }}
+                />
+              ))}
+            </div>
+
+            <div className="w-px h-6 bg-white/20"></div>
+
+            <div className="flex flex-col items-center">
+              <span className="text-[8px] text-white/50 uppercase tracking-widest font-bold">Restante</span>
+              <span className="text-white font-mono text-sm font-bold">{formatTime(120 - logic.recordingTime)}</span>
+            </div>
           </motion.div>
         )}
 

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
 import { Mic, MicOff, RefreshCcw, Activity, BookOpen, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,11 +16,28 @@ import { useStore } from '@/lib/store';
 
 /**
  * @summary ReadingTutor: Sistema de evaluación de pronunciación fonética.
- * Refactorización v7.0: Sanitización total de hardware de video para optimización de batería.
- * Centrado exclusivamente en Audio-Sync y Procesamiento de Lenguaje Natural.
  */
 export default function ReadingTutor() {
-  const [targetSentence] = useState("The future of spatial learning is powered by artificial intelligence.");
+  const { user } = useUser();
+  const db = useFirestore();
+  const { targetLanguage } = useStore();
+
+  const targetSentence = useMemo(() => {
+    const sentences: Record<string, string> = {
+      "Español": "El futuro del aprendizaje espacial está impulsado por la inteligencia artificial.",
+      "Inglés": "The future of spatial learning is powered by artificial intelligence.",
+      "Francés": "L'avenir de l'apprentissage spatial est propulsé par l'intelligence artificielle.",
+      "Alemán": "Die Zukunft des räumlichen Lernens wird durch künstliche Intelligenz angetrieben.",
+      "Portugués": "O futuro da aprendizagem espacial é impulsionado pela inteligência artificial.",
+      "Italiano": "Il futuro dell'apprendimento spaziale è alimentato dall'intelligenza artificiale.",
+      "Chino": "空间学习的未来由人工智能驱动。",
+      "Japonés": "空間学習の未来は人工知能によって支えられています。",
+      "Árabe": "مستقبل التعلم المكاني مدعوم بالذكاء الاصطناعي.",
+      "Ruso": "Будущее пространственного обучения зависит от искусственного интеллекта."
+    };
+    return sentences[targetLanguage] || sentences["Inglés"];
+  }, [targetLanguage]);
+
   const [transcription, setTranscription] = useState("");
   const transcriptionRef = useRef(""); // Ref para evitar closure stale en onend (fix C2)
   const recognitionRef = useRef<any>(null);

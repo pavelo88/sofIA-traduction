@@ -25,6 +25,15 @@ export function ConversacionMobile() {
   const logic = useConversacion();
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
+  const [unlockedScroll, setUnlockedScroll] = useState<'local' | 'guest' | null>(null);
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const languages = ['Español', 'Inglés', 'Francés', 'Alemán', 'Portugués', 'Italiano', 'Chino', 'Japonés', 'Árabe', 'Ruso'];
 
   // Historial cronológico invertido
   const chronologicalHistory = [...logic.history].reverse();
@@ -58,39 +67,72 @@ export function ConversacionMobile() {
             logic.isNativeTurn ? "bg-primary/10 border-primary/40 shadow-neon-primary" : "bg-white/[0.02] border-white/5"
           )}
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <User className={cn("w-4 h-4", logic.isNativeTurn ? "text-primary" : "text-white/30")} />
-              <span className="text-[9px] uppercase tracking-wider font-bold text-white/40">Tú (Español)</span>
+          <div className="flex flex-col gap-2 mb-2 w-full">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <User className={cn("w-4 h-4 flex-shrink-0", logic.isNativeTurn ? "text-primary" : "text-white/30")} />
+                <Input 
+                  value={logic.nativeName} 
+                  onChange={(e) => logic.setNativeName(e.target.value)} 
+                  placeholder="Personal"
+                  className="h-6 w-24 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-primary transition-all"
+                />
+              </div>
+              {logic.isNativeTurn && logic.isRecording && (
+                <span className="text-[8px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Grabando</span>
+              )}
             </div>
-            {logic.isNativeTurn && logic.isRecording && (
-              <span className="text-[8px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Grabando</span>
-            )}
+            <div className="flex gap-2">
+              <select 
+                value={logic.nativeLanguage} 
+                onChange={e => logic.setNativeLanguage(e.target.value)} 
+                className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-[10px] px-1 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+              >
+                {languages.map(l => <option key={l} value={l} className="bg-zinc-900 text-white">{l}</option>)}
+              </select>
+              <select 
+                value={logic.userVoiceGender} 
+                onChange={e => logic.setUserVoiceGender(e.target.value as any)} 
+                className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-[10px] px-1 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+              >
+                <option value="masculino" className="bg-zinc-900 text-white">Masc</option>
+                <option value="femenino" className="bg-zinc-900 text-white">Fem</option>
+              </select>
+            </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
-            {chronologicalHistory.length === 0 ? (
-              <p className="font-headline font-bold text-lg text-white/30 italic">Toca el micrófono para empezar a hablar...</p>
-            ) : (
-              chronologicalHistory.map((item, idx) => {
-                const isSelf = item.from === logic.nativeLanguage;
-                const labels = getLocalizedLabels(logic.nativeLanguage);
-                return (
-                  <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
-                    <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
-                      {isSelf ? labels.self : labels.other}
-                    </span>
-                    <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
-                  </div>
-                );
-              })
-            )}
-            {logic.isRecording && logic.isNativeTurn && logic.liveTranscript && (
-              <div className="text-sm text-primary/70 animate-pulse italic">
-                <span className="font-bold mr-1.5 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
-                <span className="text-base">{logic.liveTranscript}</span>
+          <div className="relative flex-1 min-h-[120px]">
+            {unlockedScroll !== 'local' && (
+              <div 
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/10 backdrop-blur-[1px] cursor-pointer rounded-xl"
+                onClick={(e) => { e.stopPropagation(); setUnlockedScroll('local'); }}
+              >
+                <span className="bg-black/80 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-white/10 shadow-lg">Toca para desplazar</span>
               </div>
             )}
+            <div className="absolute inset-0 overflow-y-auto space-y-3 custom-scrollbar text-left pr-1">
+              {chronologicalHistory.length === 0 ? (
+                <p className="font-headline font-bold text-lg text-white/30 italic">Toca el micrófono para empezar a hablar...</p>
+              ) : (
+                chronologicalHistory.map((item, idx) => {
+                  const isSelf = item.from === logic.nativeLanguage;
+                  return (
+                    <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
+                      <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
+                        {isSelf ? (logic.nativeName || 'Personal').toUpperCase() + ':' : (logic.targetName || 'Invitado').toUpperCase() + ':'}
+                      </span>
+                      <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
+                    </div>
+                  );
+                })
+              )}
+              {logic.isRecording && logic.isNativeTurn && logic.liveTranscript && (
+                <div className="text-sm text-primary/70 animate-pulse italic">
+                  <span className="font-bold mr-1.5 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
+                  <span className="text-base">{logic.liveTranscript}</span>
+                </div>
+              )}
+            </div>
           </div>
         </motion.div>
 
@@ -108,39 +150,72 @@ export function ConversacionMobile() {
             !logic.isNativeTurn ? "bg-secondary/10 border-secondary/40 shadow-neon-secondary" : "bg-white/[0.02] border-white/5"
           )}
         >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] uppercase tracking-wider font-bold text-white/40">Invitado ({logic.targetLanguage})</span>
-              <Users className={cn("w-4 h-4", !logic.isNativeTurn ? "text-secondary" : "text-white/30")} />
+          <div className="flex flex-col gap-2 mb-2 w-full">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={logic.targetName} 
+                  onChange={(e) => logic.setTargetName(e.target.value)} 
+                  placeholder="Invitado"
+                  className="h-6 w-24 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-secondary transition-all text-left"
+                />
+                <Users className={cn("w-4 h-4 flex-shrink-0", !logic.isNativeTurn ? "text-secondary" : "text-white/30")} />
+              </div>
+              {!logic.isNativeTurn && logic.isRecording && (
+                <span className="text-[8px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Grabando</span>
+              )}
             </div>
-            {!logic.isNativeTurn && logic.isRecording && (
-              <span className="text-[8px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Grabando</span>
-            )}
+            <div className="flex gap-2">
+              <select 
+                value={logic.targetLanguage} 
+                onChange={e => logic.setTargetLanguage(e.target.value)} 
+                className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-[10px] px-1 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+              >
+                {languages.map(l => <option key={l} value={l} className="bg-zinc-900 text-white">{l}</option>)}
+              </select>
+              <select 
+                value={logic.partnerVoiceGender} 
+                onChange={e => logic.setPartnerVoiceGender(e.target.value as any)} 
+                className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-[10px] px-1 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+              >
+                <option value="masculino" className="bg-zinc-900 text-white">Masc</option>
+                <option value="femenino" className="bg-zinc-900 text-white">Fem</option>
+              </select>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
-            {chronologicalHistory.length === 0 ? (
-              <p className="font-headline font-bold text-lg text-white/30 italic">Esperando que inicie el invitado...</p>
-            ) : (
-              chronologicalHistory.map((item, idx) => {
-                const isSelf = item.from === logic.targetLanguage;
-                const labels = getLocalizedLabels(logic.targetLanguage);
-                return (
-                  <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
-                    <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
-                      {isSelf ? labels.self : labels.other}
-                    </span>
-                    <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
-                  </div>
-                );
-              })
-            )}
-            {logic.isRecording && !logic.isNativeTurn && logic.liveTranscript && (
-              <div className="text-sm text-secondary/70 animate-pulse italic">
-                <span className="font-bold mr-1.5 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
-                <span className="text-base">{logic.liveTranscript}</span>
+          <div className="relative flex-1 min-h-[120px]">
+            {unlockedScroll !== 'guest' && (
+              <div 
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/10 backdrop-blur-[1px] cursor-pointer rounded-xl"
+                onClick={(e) => { e.stopPropagation(); setUnlockedScroll('guest'); }}
+              >
+                <span className="bg-black/80 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-white/10 shadow-lg">Toca para desplazar</span>
               </div>
             )}
+            <div className="absolute inset-0 overflow-y-auto space-y-3 custom-scrollbar text-left pr-1">
+              {chronologicalHistory.length === 0 ? (
+                <p className="font-headline font-bold text-lg text-white/30 italic">Esperando que inicie el invitado...</p>
+              ) : (
+                chronologicalHistory.map((item, idx) => {
+                  const isSelf = item.from === logic.targetLanguage;
+                  return (
+                    <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
+                      <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
+                        {isSelf ? (logic.targetName || 'Invitado').toUpperCase() + ':' : (logic.nativeName || 'Personal').toUpperCase() + ':'}
+                      </span>
+                      <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
+                    </div>
+                  );
+                })
+              )}
+              {logic.isRecording && !logic.isNativeTurn && logic.liveTranscript && (
+                <div className="text-sm text-secondary/70 animate-pulse italic">
+                  <span className="font-bold mr-1.5 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
+                  <span className="text-base">{logic.liveTranscript}</span>
+                </div>
+              )}
+            </div>
           </div>
         </motion.div>
       </div>
@@ -160,21 +235,35 @@ export function ConversacionMobile() {
             </motion.div>
           </AnimatePresence>
 
-          {/* VISOR DE AUDIO ESTILO WHATSAPP */}
+          {/* VISOR DE AUDIO Y TEMPORIZADOR */}
           {logic.isRecording && (
             <motion.div 
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="flex items-end justify-center gap-[3px] h-9 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary"
+              className="flex items-center gap-3 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary"
             >
-              {logic.audioLevels.map((level, i) => (
-                <div 
-                  key={i} 
-                  className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
-                  style={{ height: `${level}%` }}
-                />
-              ))}
+              <div className="flex flex-col items-center">
+                <span className="text-rose-400 font-mono text-xs font-bold">{formatTime(logic.recordingTime)}</span>
+              </div>
+              
+              <div className="w-px h-6 bg-white/20"></div>
+              
+              <div className="flex items-end justify-center gap-[2px] h-6">
+                {logic.audioLevels.slice(0, 10).map((level, i) => (
+                  <div 
+                    key={i} 
+                    className="w-[2px] bg-rose-500 rounded-full transition-all duration-75"
+                    style={{ height: `${level}%` }}
+                  />
+                ))}
+              </div>
+
+              <div className="w-px h-6 bg-white/20"></div>
+
+              <div className="flex flex-col items-center">
+                <span className="text-white font-mono text-xs font-bold">{formatTime(120 - logic.recordingTime)}</span>
+              </div>
             </motion.div>
           )}
           

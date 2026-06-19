@@ -63,14 +63,7 @@ export default function Home() {
     inputRef.current = input;
   }, [input]);
 
-  const speak = (text: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = targetLanguage === 'Inglés' ? 'en-US' : 'es-ES';
-    window.speechSynthesis.speak(utterance);
-  };
-
+  // El speaker mixto se carga dinámicamente cuando se necesita
   const handleKittenChat = useCallback(async (textToSubmit?: string) => {
     const finalInput = textToSubmit || inputRef.current;
     if (!finalInput.trim() || isLoading) return;
@@ -89,8 +82,16 @@ export default function Home() {
         targetLanguage
       });
       
-      setKittenResponse(result.response);
-      speak(result.response);
+      setKittenResponse(result.response.replace(/<\/?lang>/g, ''));
+      import('@/lib/voice/mixed-speaker').then(({ speakMixedText }) => {
+        speakMixedText(
+          result.response,
+          nativeLanguage,
+          targetLanguage,
+          'femenino',
+          'femenino'
+        );
+      });
 
       setChatHistory(prev => [
         ...prev,
@@ -110,42 +111,74 @@ export default function Home() {
     }
   }, [db, isLoading, nativeLanguage, targetLanguage, user?.email, user?.uid, isGuest]);
 
+  const isRecordingRef = useRef(isRecording);
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
   useEffect(() => {
     setIsMounted(true);
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (SpeechRecognition && !recognitionRef.current) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
-
-      recognition.onstart = () => setIsRecording(true);
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        if (transcript) handleKittenChat(transcript);
-      };
-      recognition.onend = () => setIsRecording(false);
-      recognition.onerror = () => setIsRecording(false);
-      
-      recognitionRef.current = recognition;
-    }
-  }, [nativeLanguage, handleKittenChat]);
+  }, []);
 
   const toggleVoice = () => {
-    if (!recognitionRef.current) {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
       toast({ title: "Voz no disponible", description: "Revisa los permisos de tu navegador." });
       return;
     }
-    if (isRecording) {
-      recognitionRef.current.stop();
-    } else {
-      try {
-        recognitionRef.current.start();
-      } catch (err) {
-        recognitionRef.current.stop();
-        setTimeout(() => recognitionRef.current.start(), 150);
+
+    if (isRecordingRef.current) {
+      isRecordingRef.current = false;
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+        recognitionRef.current = null;
       }
+      setIsRecording(false);
+      if (inputRef.current.trim()) {
+        handleKittenChat(inputRef.current.trim());
+      }
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+      isRecordingRef.current = true;
+      setInput(''); // Limpiar antes de grabar
+    };
+
+    recognition.onresult = (event: any) => {
+      let accumulated = '';
+      for (let i = 0; i < event.results.length; i++) {
+        accumulated += event.results[i][0].transcript + ' ';
+      }
+      setInput(accumulated.trim());
+    };
+
+    recognition.onend = () => {
+      if (isRecordingRef.current) {
+        // Auto-reinicio si se corta por silencio pero el usuario no ha presionado detener
+        setTimeout(() => {
+          if (isRecordingRef.current && recognitionRef.current) {
+            try { recognitionRef.current.start(); } catch (e) {}
+          }
+        }, 50);
+        return;
+      }
+      setIsRecording(false);
+    };
+
+    recognition.onerror = () => {}; // Ignorar, onend reiniciará si es necesario
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (err) {
+      setTimeout(() => { try { recognition.start(); } catch (e) {} }, 150);
     }
   };
 

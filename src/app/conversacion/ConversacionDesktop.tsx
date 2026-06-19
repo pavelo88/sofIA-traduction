@@ -22,7 +22,15 @@ import { Input } from "@/components/ui/input";
 export function ConversacionDesktop() {
   const logic = useConversacion();
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const languages = ['Español', 'Inglés', 'Francés', 'Alemán', 'Portugués', 'Italiano', 'Chino', 'Japonés', 'Árabe', 'Ruso'];
+
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
 
@@ -65,19 +73,40 @@ export function ConversacionDesktop() {
             <motion.div layout className="flex justify-between items-center w-full mb-4">
               <div className="flex items-center gap-3">
                 <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300",
+                  "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 flex-shrink-0",
                   logic.isNativeTurn ? "bg-primary shadow-lg shadow-primary/20 text-white" : "bg-white/10 text-white/60"
                 )}>
                   <User className="w-5 h-5" />
                 </div>
-                <div>
+                <div className="flex flex-col gap-1 w-full">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold">Tú (Local)</h3>
+                    <Input 
+                      value={logic.nativeName} 
+                      onChange={(e) => logic.setNativeName(e.target.value)} 
+                      placeholder="Personal"
+                      className="h-6 w-32 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-primary transition-all"
+                    />
                     {logic.isNativeTurn && (
                       <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(161,98,247,1)]" />
                     )}
                   </div>
-                  <p className="text-xs text-white/40">{logic.nativeLanguage} ({logic.userVoiceGender})</p>
+                  <div className="flex gap-2">
+                    <select 
+                      value={logic.nativeLanguage} 
+                      onChange={e => logic.setNativeLanguage(e.target.value)} 
+                      className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                    >
+                      {languages.map(l => <option key={l} value={l} className="bg-zinc-900 text-white">{l}</option>)}
+                    </select>
+                    <select 
+                      value={logic.userVoiceGender} 
+                      onChange={e => logic.setUserVoiceGender(e.target.value as any)} 
+                      className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                    >
+                      <option value="masculino" className="bg-zinc-900 text-white">Masculino</option>
+                      <option value="femenino" className="bg-zinc-900 text-white">Femenino</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <AnimatePresence>
@@ -108,17 +137,16 @@ export function ConversacionDesktop() {
             </motion.div>
 
             {/* Contenido / Historial de Guion */}
-            <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
+            <div className="h-[250px] overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-2">
               {chronologicalHistory.length === 0 ? (
                 <p className="font-headline font-bold text-2xl text-white/30 italic">Presiona el micrófono para hablar...</p>
               ) : (
                 chronologicalHistory.map((item, idx) => {
                   const isSelf = item.from === logic.nativeLanguage;
-                  const labels = getLocalizedLabels(logic.nativeLanguage);
                   return (
                     <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                       <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
-                        {isSelf ? labels.self : labels.other}
+                        {isSelf ? (logic.nativeName || 'Personal').toUpperCase() + ':' : (logic.targetName || 'Invitado').toUpperCase() + ':'}
                       </span>
                       <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                     </div>
@@ -155,19 +183,40 @@ export function ConversacionDesktop() {
             <motion.div layout className="flex justify-between items-center w-full mb-4">
               <div className="flex items-center gap-3">
                 <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300",
+                  "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 flex-shrink-0",
                   !logic.isNativeTurn ? "bg-secondary shadow-lg shadow-secondary/20 text-white" : "bg-white/10 text-white/60"
                 )}>
                   <Users className="w-5 h-5" />
                 </div>
-                <div>
+                <div className="flex flex-col gap-1 w-full">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold">Invitado</h3>
+                    <Input 
+                      value={logic.targetName} 
+                      onChange={(e) => logic.setTargetName(e.target.value)} 
+                      placeholder="Invitado"
+                      className="h-6 w-32 bg-transparent border-b border-white/20 hover:border-white/50 rounded-none px-0 text-[10px] font-headline uppercase tracking-widest text-white/80 font-bold focus-visible:ring-0 focus-visible:border-secondary transition-all"
+                    />
                     {!logic.isNativeTurn && (
                       <span className="w-2 h-2 rounded-full bg-secondary animate-pulse shadow-[0_0_8px_rgba(155,168,245,1)]" />
                     )}
                   </div>
-                  <p className="text-xs text-white/40">{logic.targetLanguage} ({logic.partnerVoiceGender})</p>
+                  <div className="flex gap-2">
+                    <select 
+                      value={logic.targetLanguage} 
+                      onChange={e => logic.setTargetLanguage(e.target.value)} 
+                      className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                    >
+                      {languages.map(l => <option key={l} value={l} className="bg-zinc-900 text-white">{l}</option>)}
+                    </select>
+                    <select 
+                      value={logic.partnerVoiceGender} 
+                      onChange={e => logic.setPartnerVoiceGender(e.target.value as any)} 
+                      className="bg-white/5 border border-white/10 hover:border-white/20 rounded-md text-xs px-2 py-1 outline-none text-white/60 focus:text-white transition-colors cursor-pointer"
+                    >
+                      <option value="masculino" className="bg-zinc-900 text-white">Masculino</option>
+                      <option value="femenino" className="bg-zinc-900 text-white">Femenino</option>
+                    </select>
+                  </div>
                 </div>
               </div>
               <AnimatePresence>
@@ -198,17 +247,16 @@ export function ConversacionDesktop() {
             </motion.div>
 
             {/* Contenido / Historial de Guion */}
-            <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
+            <div className="h-[250px] overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-2">
               {chronologicalHistory.length === 0 ? (
                 <p className="font-headline font-bold text-2xl text-white/30 italic">Esperando respuesta...</p>
               ) : (
                 chronologicalHistory.map((item, idx) => {
                   const isSelf = item.from === logic.targetLanguage;
-                  const labels = getLocalizedLabels(logic.targetLanguage);
                   return (
                     <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                       <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
-                        {isSelf ? labels.self : labels.other}
+                        {isSelf ? (logic.targetName || 'Invitado').toUpperCase() + ':' : (logic.nativeName || 'Personal').toUpperCase() + ':'}
                       </span>
                       <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                     </div>
@@ -227,15 +275,38 @@ export function ConversacionDesktop() {
         </div>
 
         {/* CONTROLES DE ACCIÓN DE CONVERSACIÓN */}
-        <div className="glass-panel rounded-3xl p-6 border-white/10 flex items-center justify-between gap-6 shadow-xl relative overflow-hidden">
-          {/* Fondo animado para el control panel */}
-          {logic.isRecording && (
-            <motion.div 
-              layoutId="recordingBg"
-              className="absolute inset-0 bg-rose-500/5 z-0"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            />
-          )}
+        <div className="relative">
+          {/* Timer Overlay */}
+          <AnimatePresence>
+            {logic.isRecording && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="absolute -top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-6 bg-black/80 backdrop-blur-xl px-8 py-3 rounded-full border border-rose-500/30 shadow-[0_0_30px_rgba(244,63,94,0.2)]"
+              >
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] text-white/50 uppercase tracking-widest font-bold mb-1">Transcurrido</span>
+                  <span className="text-rose-400 font-mono text-xl font-bold">{formatTime(logic.recordingTime)}</span>
+                </div>
+                <div className="w-px h-10 bg-white/10"></div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] text-white/50 uppercase tracking-widest font-bold mb-1">Restante</span>
+                  <span className="text-white font-mono text-xl font-bold">{formatTime(120 - logic.recordingTime)}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="glass-panel rounded-3xl p-6 border-white/10 flex items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+            {/* Fondo animado para el control panel */}
+            {logic.isRecording && (
+              <motion.div 
+                layoutId="recordingBg"
+                className="absolute inset-0 bg-rose-500/5 z-0"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              />
+            )}
 
           <div className="flex items-center gap-4 relative z-10">
             <Button
@@ -314,7 +385,7 @@ export function ConversacionDesktop() {
             </Button>
           </div>
         </div>
-
+      </div>
       </main>
 
       {/* SECCIÓN LATERAL DE TELEMETRÍA (4 COLUMNAS) */}

@@ -46,7 +46,18 @@ Kitten dice: ¡Hazlo con amor espacial! 🐱🚀`,
 });
 
 export async function evaluatePronunciation(input: { targetSentence: string; transcription: string }): Promise<PronunciationEvalOutput> {
-  const { output } = await pronunciationPrompt(input);
-  if (!output) throw new Error('Kitten no pudo procesar tu voz en el vacío del espacio.');
-  return output;
+  try {
+    const { output } = await pronunciationPrompt(input);
+    if (!output) {
+      return { grade: 'N/A', accuracy: 0, words: [] };
+    }
+    return output;
+  } catch (error: any) {
+    console.error("[SoftIA Genkit] Error:", error.message || error);
+    return {
+      grade: 'ERR',
+      accuracy: 0,
+      words: [{ word: "Error de API Gemini", correct: false }]
+    };
+  }
 }
