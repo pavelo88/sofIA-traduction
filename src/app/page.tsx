@@ -10,7 +10,6 @@ import {
   Zap,
   Activity,
   Star,
-  ShieldAlert,
   Mic,
   MicOff,
   Wallet
@@ -19,25 +18,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useFirestore, useDoc, useUser } from '@/firebase';
 import { doc, collection, addDoc } from 'firebase/firestore';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v3.3.0 - Resiliencia Auth & Audio)
+ * Pantalla Principal: Dashboard de SoftIA (v3.4.0 - Resiliencia Total Guest/Firestore)
  */
 export default function Home() {
   const { learningProgress, nativeLanguage, targetLanguage } = useStore();
   const { user } = useUser();
   const db = useFirestore();
 
+  // Solo intentamos leer de Firestore si NO es una sesión de invitado
+  const isGuest = useMemo(() => !user?.uid || user.uid.startsWith('guest-session'), [user?.uid]);
+
   const progressRef = useMemo(() => {
-    const uid = user?.uid || 'guest-session-stable';
-    if (!db) return null;
-    return doc(db, 'user_progress', uid);
-  }, [db, user?.uid]);
+    if (!db || isGuest || !user?.uid) return null;
+    return doc(db, 'user_progress', user.uid);
+  }, [db, user?.uid, isGuest]);
 
   const { data: progressData } = useDoc(progressRef);
   const currentLevel = progressData?.accuracy_percentage ?? learningProgress;
@@ -46,7 +45,7 @@ export default function Home() {
   const [kittenResponse, setKittenResponse] = useState('¡Hola! Soy Kitten. ¿Listo para nuestra sesión espacial de hoy? 🐱✨ ¡Prrr!');
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [apiErrorType, setApiErrorType] = useState<'403' | '429' | 'other' | null>(null);
+  const [apiErrorType, setApiErrorType] = useState<'429' | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   
   const recognitionRef = useRef<any>(null);
@@ -69,29 +68,12 @@ export default function Home() {
     const finalInput = textToSubmit || inputRef.current;
     if (!finalInput.trim() || isLoading) return;
 
-    // Usamos UID de invitado si Auth está fallando por el dominio
-    const activeUid = user?.uid || 'guest-session-stable';
-    
     setIsLoading(true);
     setApiErrorType(null);
     if (!textToSubmit) setInput('');
 
     try {
-      const msgData = {
-        role: 'user' as const,
-        content: finalInput,
-        timestamp: new Date().toISOString(),
-        user_email: user?.email || 'guest@softia.com',
-        user_id: activeUid,
-        nativeLanguage,
-        targetLanguage
-      };
-
-      addDoc(collection(db, 'users', activeUid, 'chat_history'), msgData)
-        .catch(async () => {
-          console.warn("[Firestore] Error de guardado, continuando en memoria.");
-        });
-
+      // Flujo de IA (Independiente de Firestore)
       const result = await aiTutorConversation({
         message: finalInput,
         chatHistory: [],
@@ -102,26 +84,26 @@ export default function Home() {
       setKittenResponse(result.response);
       speak(result.response);
 
-      const responseData = {
-        role: 'model' as const,
-        content: result.response,
-        timestamp: new Date().toISOString(),
-        user_email: user?.email || 'guest@softia.com',
-        user_id: activeUid
-      };
-
-      addDoc(collection(db, 'users', activeUid, 'chat_history'), responseData);
+      // Persistencia condicional: Solo si es usuario real
+      if (!isGuest && user?.uid) {
+        const msgData = {
+          role: 'user' as const,
+          content: finalInput,
+          timestamp: new Date().toISOString(),
+          user_email: user?.email || 'user@softia.com',
+          user_id: user.uid
+        };
+        addDoc(collection(db, 'users', user.uid, 'chat_history'), msgData).catch(() => {});
+      }
 
     } catch (error: any) {
       console.error("Error en chat de Kitten:", error);
-      const errorMsg = error.message?.toLowerCase() || "";
-      if (errorMsg.includes('403')) setApiErrorType('403');
-      else if (errorMsg.includes('429')) setApiErrorType('429');
+      if (error.message?.includes('429')) setApiErrorType('429');
       setKittenResponse("¡Miau! Algo interfirió con mi señal espacial.");
     } finally {
       setIsLoading(false);
     }
-  }, [db, isLoading, nativeLanguage, targetLanguage, user?.email, user?.uid]);
+  }, [db, isLoading, nativeLanguage, targetLanguage, user?.email, user?.uid, isGuest]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -129,35 +111,17 @@ export default function Home() {
     
     if (SpeechRecognition && !recognitionRef.current) {
       const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.interimResults = false;
       recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
 
-      recognition.onstart = () => {
-        setIsRecording(true);
-        transcriptRef.current = '';
-      };
-
+      recognition.onstart = () => setIsRecording(true);
       recognition.onresult = (event: any) => {
-        let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
-        }
-        if (finalTranscript) transcriptRef.current += finalTranscript;
+        const transcript = event.results[0][0].transcript;
+        if (transcript) handleKittenChat(transcript);
       };
-
-      recognition.onend = () => {
-        if (transcriptRef.current.trim()) {
-          handleKittenChat(transcriptRef.current);
-          transcriptRef.current = '';
-        }
-        setIsRecording(false);
-      };
-
-      recognition.onerror = () => {
-        setIsRecording(false);
-        toast({ title: "Acceso Denegado", description: "Habilita el micrófono en tu navegador.", variant: "destructive" });
-      };
+      recognition.onend = () => setIsRecording(false);
+      recognition.onerror = () => setIsRecording(false);
       
       recognitionRef.current = recognition;
     }
@@ -165,7 +129,7 @@ export default function Home() {
 
   const toggleVoice = () => {
     if (!recognitionRef.current) {
-      toast({ title: "Voz no disponible", description: "Tu navegador no soporta reconocimiento de voz nativo." });
+      toast({ title: "Voz no disponible", description: "Revisa los permisos de tu navegador." });
       return;
     }
     if (isRecording) {
@@ -174,8 +138,8 @@ export default function Home() {
       try {
         recognitionRef.current.start();
       } catch (err) {
-        console.warn("[Voz] Error al iniciar sesión:", err);
-        setIsRecording(false);
+        recognitionRef.current.stop();
+        setTimeout(() => recognitionRef.current.start(), 150);
       }
     }
   };
@@ -230,7 +194,7 @@ export default function Home() {
                   className={cn(
                     "h-12 w-12 rounded-2xl squish-effect shrink-0 transition-all duration-300 shadow-lg",
                     isRecording 
-                      ? "bg-rose-500 hover:bg-rose-600 animate-pulse" 
+                      ? "bg-rose-500 hover:bg-rose-600" 
                       : "bg-white/10 hover:bg-white/20 text-white"
                   )}
                 >
@@ -255,6 +219,11 @@ export default function Home() {
           <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-white/60 border-white/5">
             <Star className="w-4 h-4 text-primary fill-primary" /> NIVEL: {currentLevel}%
           </div>
+          {isGuest && (
+            <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-rose-400 border-rose-500/20">
+              MODO INVITADO (NO SYNC)
+            </div>
+          )}
         </div>
       </header>
     </main>

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { translateConversation } from '@/ai/flows/conversation-translate';
 import { callDeepSeekBackup } from '@/ai/deepseekClient';
@@ -18,7 +18,7 @@ export type ChatItem = {
 
 /**
  * @summary Hook de lógica de negocio para Conversación Dual.
- * Refactorización v8.1: Modo invitado resiliente para evitar bloqueos por Auth.
+ * Refactorización v8.2: Gestión de hardware y bypass de Firestore para invitados.
  */
 export function useConversacion() {
   const { 
@@ -33,6 +33,7 @@ export function useConversacion() {
   } = useStore();
   
   const { user } = useUser();
+  const isGuest = useMemo(() => !user?.uid || user.uid.startsWith('guest-session'), [user?.uid]);
   
   const [isNativeTurn, setIsNativeTurn] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -43,7 +44,6 @@ export function useConversacion() {
   const recognitionRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const transcriptBuffer = useRef('');
-  const isAutoRestarting = useRef(false);
 
   const langMap: Record<string, string> = {
     "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
@@ -74,14 +74,13 @@ export function useConversacion() {
     
     utterance.onend = () => {
       setIsNativeTurn(prev => !prev);
-      isAutoRestarting.current = true;
     };
 
     window.speechSynthesis.speak(utterance);
   }, [isNativeTurn, userVoiceGender, partnerVoiceGender]);
 
   const handleTranslation = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim() || isProcessing) return;
 
     setIsProcessing(true);
     const fromLang = isNativeTurn ? nativeLanguage : targetLanguage;
@@ -90,30 +89,24 @@ export function useConversacion() {
     try {
       let translatedText = "";
 
+      // Priorizar motor de IA
       if (aiEngineMode === 'gemini') {
-        if (userCredits <= 0) {
-          setIsProcessing(false);
+        if (!isGuest && userCredits <= 0) {
           setIsProfileOpen(true);
-          toast({ title: "Créditos Agotados", description: "Cambia a DeepSeek o Modo Dispositivo.", variant: "destructive" });
+          toast({ title: "Créditos Agotados", variant: "destructive" });
+          setIsProcessing(false);
           return;
         }
-        addCredits(-1);
+        if (!isGuest) addCredits(-1);
         const result = await translateConversation({ text, fromLanguage: fromLang, toLanguage: toLang });
         translatedText = result.translatedText;
       } 
       else if (aiEngineMode === 'deepseek') {
-        if (userCredits <= 0) {
-          setIsProcessing(false);
-          setIsProfileOpen(true);
-          toast({ title: "Créditos Agotados", description: "Recarga para usar DeepSeek.", variant: "destructive" });
-          return;
-        }
-        addCredits(-0.5);
         const result = await callDeepSeekBackup(text, fromLang, toLang);
         translatedText = result.translatedText;
       }
       else {
-        translatedText = `[Device Mode] ${text}`;
+        translatedText = `[Device] ${text}`;
       }
 
       const newItem: ChatItem = {
@@ -128,7 +121,7 @@ export function useConversacion() {
       speakText(translatedText, toLang);
     } catch (error) {
       console.error("[SoftIA Engine] Error:", error);
-      toast({ title: "Error de Motor", description: "No se pudo procesar la traducción." });
+      toast({ title: "Error de Motor", description: "Reintenta en un momento." });
     } finally {
       setIsProcessing(false);
     }
@@ -143,34 +136,15 @@ export function useConversacion() {
       recognition.interimResults = false;
       
       recognition.onstart = () => setIsRecording(true);
-      recognition.onresult = (event: any) => { transcriptBuffer.current = event.results[0][0].transcript; };
-      recognition.onend = () => {
-        setIsRecording(false);
-        if (transcriptBuffer.current) {
-          handleTranslation(transcriptBuffer.current);
-          transcriptBuffer.current = '';
-        }
+      recognition.onresult = (event: any) => { 
+        const transcript = event.results[0][0].transcript;
+        if (transcript) handleTranslation(transcript);
       };
+      recognition.onend = () => setIsRecording(false);
       recognition.onerror = () => setIsRecording(false);
       recognitionRef.current = recognition;
     }
   }, [nativeLanguage, targetLanguage, isNativeTurn, aiEngineMode]);
-
-  useEffect(() => {
-    if (isAutoRestarting.current && !isRecording && !isProcessing) {
-      isAutoRestarting.current = false;
-      const currentLang = isNativeTurn ? nativeLanguage : targetLanguage;
-      if (recognitionRef.current) {
-        recognitionRef.current.lang = langMap[currentLang] || 'en-US';
-        try {
-          recognitionRef.current.start();
-        } catch (e) {
-          recognitionRef.current.stop();
-          setTimeout(() => recognitionRef.current.start(), 200);
-        }
-      }
-    }
-  }, [isNativeTurn, isRecording, isProcessing, nativeLanguage, targetLanguage]);
 
   const toggleSession = () => {
     if (isRecording) {
@@ -182,12 +156,11 @@ export function useConversacion() {
         try {
           recognitionRef.current.start();
         } catch (error) {
-          console.warn("[Audio Core] Colisión detectada. Reiniciando sesión.");
           recognitionRef.current.stop();
-          setTimeout(() => recognitionRef.current.start(), 100);
+          setTimeout(() => recognitionRef.current.start(), 200);
         }
       } else {
-        toast({ title: "Micro no listo", description: "Por favor, espera o recarga la página." });
+        toast({ title: "Micro no listo" });
       }
     }
   };
@@ -200,11 +173,8 @@ export function useConversacion() {
         .catch(() => setIsCameraActive(false));
     }
     return () => {
-      const streamToCleanup = activeStream || streamRef.current;
-      if (streamToCleanup) {
-        streamToCleanup.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
+      if (activeStream) activeStream.getTracks().forEach(t => t.stop());
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
     };
   }, [isCameraActive]);
 
