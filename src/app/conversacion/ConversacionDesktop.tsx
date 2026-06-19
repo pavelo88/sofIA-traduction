@@ -37,7 +37,7 @@ export function ConversacionDesktop() {
           {/* PANEL DE USUARIO LOCAL */}
           <motion.div 
             layout
-            onClick={() => logic.isNativeTurn || (window.speechSynthesis.cancel(), logic.toggleSession())}
+            onClick={() => logic.isNativeTurn || logic.toggleTurn()}
             animate={{
               flex: logic.isNativeTurn ? 2 : 1,
               opacity: logic.isNativeTurn ? 1 : 0.6,
@@ -119,7 +119,7 @@ export function ConversacionDesktop() {
           {/* PANEL DE INVITADO EXTRANJERO */}
           <motion.div 
             layout
-            onClick={() => !logic.isNativeTurn || (window.speechSynthesis.cancel(), logic.toggleSession())}
+            onClick={() => !logic.isNativeTurn || logic.toggleTurn()}
             animate={{
               flex: !logic.isNativeTurn ? 2 : 1,
               opacity: !logic.isNativeTurn ? 1 : 0.6,
@@ -254,10 +254,7 @@ export function ConversacionDesktop() {
           <div className="flex items-center gap-4 relative z-10">
             <Button
               variant="outline"
-              onClick={() => {
-                window.speechSynthesis.cancel();
-                logic.toggleSession();
-              }}
+              onClick={logic.toggleTurn}
               className="h-12 px-5 rounded-2xl bg-white/5 border-white/10 text-white/70 hover:text-white flex items-center gap-2 hover:bg-white/10 transition-all"
             >
               <ArrowUpDown className="w-4 h-4" /> Alternar

@@ -34,12 +34,13 @@ export function ConversacionTablet() {
       <div className="flex-1 grid grid-cols-2 gap-10">
         <motion.div 
           layout
+          onClick={() => logic.isNativeTurn || logic.toggleTurn()}
           animate={{
             scale: logic.isNativeTurn ? 1 : 0.95,
             opacity: logic.isNativeTurn ? 1 : 0.5
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-center border transition-colors", logic.isNativeTurn ? "border-primary/40 bg-gradient-to-br from-primary/10 to-transparent shadow-neon-primary" : "border-white/5 bg-white/[0.02]")}
+          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-center border transition-colors cursor-pointer hover:bg-primary/[0.03]", logic.isNativeTurn ? "border-primary/40 bg-gradient-to-br from-primary/10 to-transparent shadow-neon-primary" : "border-white/5 bg-white/[0.02]")}
         >
           <div className="flex items-center gap-4 mb-6">
             <User className={cn("w-8 h-8", logic.isNativeTurn ? "text-primary" : "text-white/40")} />
@@ -50,12 +51,13 @@ export function ConversacionTablet() {
 
         <motion.div 
           layout
+          onClick={() => !logic.isNativeTurn || logic.toggleTurn()}
           animate={{
             scale: !logic.isNativeTurn ? 1 : 0.95,
             opacity: !logic.isNativeTurn ? 1 : 0.5
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-center border transition-colors items-end text-right", !logic.isNativeTurn ? "border-secondary/40 bg-gradient-to-br from-secondary/10 to-transparent shadow-neon-secondary" : "border-white/5 bg-white/[0.02]", isTableModeActive && "rotate-180")}
+          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-center border transition-colors items-end text-right cursor-pointer hover:bg-secondary/[0.03]", !logic.isNativeTurn ? "border-secondary/40 bg-gradient-to-br from-secondary/10 to-transparent shadow-neon-secondary" : "border-white/5 bg-white/[0.02]", isTableModeActive && "rotate-180")}
         >
           <div className="flex items-center gap-4 mb-6">
             <span className="text-xs uppercase font-headline font-bold text-white/50">Invitado</span>

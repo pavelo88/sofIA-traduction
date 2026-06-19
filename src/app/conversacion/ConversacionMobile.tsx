@@ -35,13 +35,14 @@ export function ConversacionMobile() {
       <div className="flex-1 flex flex-col gap-4 overflow-hidden mb-12 relative z-10">
         <motion.div 
           layout
+          onClick={() => logic.isNativeTurn || logic.toggleTurn()}
           animate={{
             flex: logic.isNativeTurn ? 2 : 1,
             opacity: logic.isNativeTurn ? 1 : 0.6,
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={cn(
-            "relative rounded-[2.5rem] p-6 border flex flex-col justify-center overflow-hidden", 
+            "relative rounded-[2.5rem] p-6 border flex flex-col justify-center overflow-hidden cursor-pointer hover:bg-primary/[0.03]", 
             logic.isNativeTurn ? "bg-primary/10 border-primary/40 shadow-neon-primary" : "bg-white/[0.02] border-white/5"
           )}
         >
@@ -59,13 +60,14 @@ export function ConversacionMobile() {
 
         <motion.div 
           layout
+          onClick={() => !logic.isNativeTurn || logic.toggleTurn()}
           animate={{
             flex: !logic.isNativeTurn ? 2 : 1,
             opacity: !logic.isNativeTurn ? 1 : 0.6,
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={cn(
-            "relative rounded-[2.5rem] p-6 border flex flex-col justify-center text-right items-end overflow-hidden", 
+            "relative rounded-[2.5rem] p-6 border flex flex-col justify-center text-right items-end overflow-hidden cursor-pointer hover:bg-secondary/[0.03]", 
             !logic.isNativeTurn ? "bg-secondary/10 border-secondary/40 shadow-neon-secondary" : "bg-white/[0.02] border-white/5"
           )}
         >

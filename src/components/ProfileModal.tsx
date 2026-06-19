@@ -52,7 +52,7 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
 
   const handleUpdate = async (field: string, value: any) => {
-    if (user) {
+    if (user && !user.uid.startsWith('guest-session')) {
       const userDocRef = doc(db, 'users', user.uid);
       const data = {
         [field]: value,
@@ -61,7 +61,7 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
       try {
         await setDoc(userDocRef, data, { merge: true });
       } catch (error) {
-        console.error(`Firestore error updating field ${field}:`, error);
+        console.warn(`Firestore error updating field ${field}:`, error);
         const permissionError = new FirestorePermissionError({
           path: userDocRef.path,
           operation: 'write',
