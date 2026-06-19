@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
-import { Mic, RefreshCcw, Star, CheckCircle2, Activity } from 'lucide-react';
+import { Mic, RefreshCcw, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * @summary ReadingTutor: Sistema de evaluación de pronunciación.
- * Ciclo de vida de hardware v5.0 corregido para evitar drenaje de batería y fugas de memoria.
+ * Refactorización v6.0: Eliminación completa de hardware de video para optimización de batería.
  */
 export default function ReadingTutor() {
   const [targetSentence] = useState("The future of spatial learning is powered by artificial intelligence.");
@@ -21,41 +21,7 @@ export default function ReadingTutor() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<PronunciationEvalOutput | null>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const db = useFirestore();
-
-  // --- GESTIÓN DE HARDWARE (CÁMARA BACKDROP) ---
-  useEffect(() => {
-    let activeStream: MediaStream | null = null;
-
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-          audio: false
-        });
-        activeStream = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-        console.log(`[SoftIA Hardware] Reading Backdrop activado: ${stream.id}`);
-      } catch (err) {
-        console.warn("[SoftIA Hardware] Cámara de fondo no disponible.");
-      }
-    }
-    startCamera();
-
-    return () => {
-      if (activeStream) {
-        activeStream.getTracks().forEach(track => {
-          track.stop();
-          console.log(`[SoftIA Hardware] Reading track destruido: ${track.kind}`);
-        });
-        activeStream = null;
-      }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-    };
-  }, []);
 
   const startSpeechRecognition = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -109,27 +75,28 @@ export default function ReadingTutor() {
   };
 
   return (
-    <main className="relative min-h-screen bg-black overflow-hidden flex flex-col items-center justify-center p-6">
-      <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 grayscale-[0.5]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80 z-0" />
-
+    <main className="relative min-h-screen bg-background overflow-hidden flex flex-col items-center justify-center p-6">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(161,98,247,0.1),transparent_70%)]" />
+      
       <div className="relative z-10 w-full max-w-3xl animate-in zoom-in-95 duration-700">
         <header className="mb-8 text-center">
           <div className="inline-flex items-center gap-3 glass-panel px-6 py-2 rounded-full border-primary/20 mb-4">
-            <Activity className="w-4 h-4 text-primary animate-pulse" />
+            <Activity className="w-4 h-4 text-primary" />
             <span className="font-headline text-[10px] tracking-[0.2em] uppercase text-white/60">Audio_Sync: Activo</span>
           </div>
           <h1 className="text-4xl font-headline font-bold text-white tracking-tighter">Práctica de Pronunciación</h1>
         </header>
 
-        <div className="glass-panel p-10 rounded-[3rem] border-white/5 shadow-2xl space-y-8 relative">
+        <div className="glass-panel p-10 rounded-[3rem] border-white/5 shadow-2xl space-y-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          
           {evalResult && (
             <div className="absolute top-6 right-6 w-16 h-16 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center animate-bounce">
               <span className="text-2xl font-headline font-black text-primary">{evalResult.grade}</span>
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="space-y-4 relative z-10">
             <h3 className="text-xs font-headline uppercase tracking-widest text-white/30">Target_Sentence</h3>
             <div className="text-2xl leading-snug font-medium text-white/90">
               {evalResult ? (
@@ -142,13 +109,13 @@ export default function ReadingTutor() {
             </div>
           </div>
 
-          <div className="flex justify-center pt-6">
+          <div className="flex justify-center pt-6 relative z-10">
             <Button 
               onClick={startSpeechRecognition}
               disabled={isRecording || isEvaluating}
               className={cn(
                 "h-20 w-20 rounded-full transition-all duration-500 shadow-2xl squish-effect",
-                isRecording ? "bg-rose-500 scale-110" : "bg-primary shadow-primary/40"
+                isRecording ? "bg-rose-500 scale-110 shadow-rose-500/20" : "bg-primary shadow-primary/40"
               )}
             >
               {isEvaluating ? <RefreshCcw className="w-8 h-8 animate-spin" /> : <Mic className="w-8 h-8" />}

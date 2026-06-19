@@ -3,13 +3,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { arTextTranslation, type ARTextTranslationOutput } from '@/ai/flows/ar-text-translation';
-import { Sparkles, Radio, Languages, MousePointer2 } from 'lucide-react';
+import { Sparkles, Radio, MousePointer2, Info } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
 /**
- * @summary ARLens: Escáner espacial activado por toque.
- * Lógica de ciclo de vida de hardware v5.0 optimizada para prevenir fugas de memoria.
+ * @summary ARLens: Escáner espacial inmersivo de pantalla completa.
+ * Rediseño v6.0: Layout cinemático con controles de cristal flotantes.
  */
 export default function ARLens() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -20,10 +20,8 @@ export default function ARLens() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const db = useFirestore();
 
-  // --- GESTIÓN CRÍTICA DEL HARDWARE (CÁMARA) ---
   useEffect(() => {
     let activeStream: MediaStream | null = null;
 
@@ -41,22 +39,16 @@ export default function ARLens() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
-        console.log(`[SoftIA Hardware] AR Lens inicializado: ${stream.id}`);
       } catch (err) {
-        console.error("[SoftIA Hardware] Fallo al acceder al hardware de cámara:", err);
-        setCameraError("VISIÓN_OFF: Acceso denegado o hardware no detectado.");
+        setCameraError("Acceso al hardware de cámara denegado.");
       }
     }
     
     startCamera();
 
-    // LIMPIEZA TOTAL: Apagar hardware instantáneamente para mitigar consumo de batería
     return () => {
       if (activeStream) {
-        activeStream.getTracks().forEach(track => {
-          track.stop();
-          console.log(`[SoftIA Hardware] AR Lens track destruido: ${track.kind} - ${track.label}`);
-        });
+        activeStream.getTracks().forEach(track => track.stop());
         activeStream = null;
       }
       if (videoRef.current) {
@@ -109,80 +101,97 @@ export default function ARLens() {
 
   const handleViewportClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isProcessing || cameraError) return;
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const x = (e.clientX / window.innerWidth) * 100;
+    const y = (e.clientY / window.innerHeight) * 100;
     setTapRipple({ x, y });
     setTimeout(() => setTapRipple(null), 1000);
     captureAndAnalyze();
   };
 
   return (
-    <main className="min-h-screen bg-black flex flex-col items-center justify-center p-6 overflow-hidden">
-      
-      <div 
-        ref={containerRef}
-        onClick={handleViewportClick}
-        className="w-full max-w-6xl aspect-[16/9] glass-panel rounded-[3.5rem] relative overflow-hidden border-white/5 shadow-2xl cursor-crosshair group"
-      >
-        <div className="absolute inset-0 z-0 bg-neutral-950">
-          {!cameraError ? (
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-90" />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-white/20">
-              <Radio className="w-16 h-16 mb-4 animate-pulse" />
-              <p className="font-headline tracking-widest uppercase text-[10px]">{cameraError}</p>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/40 pointer-events-none" />
-        </div>
-
-        <canvas ref={canvasRef} className="hidden" />
-
-        {tapRipple && (
-          <div className="absolute z-50 pointer-events-none" style={{ left: `${tapRipple.x}%`, top: `${tapRipple.y}%` }}>
-            <div className="w-20 h-20 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary bg-primary/20 animate-ping" />
-            <div className="w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_15px_rgba(161,98,247,0.8)]" />
+    <main 
+      className="fixed inset-0 bg-black overflow-hidden cursor-crosshair group"
+      onClick={handleViewportClick}
+    >
+      {/* FEED DE VIDEO INMERSIVO (PANTALLA COMPLETA) */}
+      <div className="absolute inset-0 z-0">
+        {!cameraError ? (
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            muted 
+            className="w-full h-full object-cover opacity-90 transition-opacity duration-1000" 
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-white/20 bg-zinc-950">
+            <Radio className="w-16 h-16 mb-4 animate-pulse" />
+            <p className="font-headline tracking-widest uppercase text-[10px]">{cameraError}</p>
           </div>
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
+      </div>
 
-        {/* HUD Detecciones */}
-        <div className="absolute inset-0 z-20 pointer-events-none">
-          {detections.map((det, index) => (
-            <div key={`${index}`} className="absolute animate-in fade-in zoom-in duration-700" style={{ left: `${det.x}%`, top: `${det.y}%` }}>
-              <div className="bg-primary/20 backdrop-blur-md border border-primary/40 px-5 py-2 rounded-full -translate-x-1/2 -translate-y-1/2">
-                <span className="text-white text-[11px] font-headline font-bold uppercase tracking-wider">{det.translatedText}</span>
-              </div>
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* RIPPLE DE TOQUE AR */}
+      {tapRipple && (
+        <div className="absolute z-50 pointer-events-none" style={{ left: `${tapRipple.x}%`, top: `${tapRipple.y}%` }}>
+          <div className="w-24 h-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-primary/10 animate-ping" />
+          <div className="w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_20px_rgba(161,98,247,0.9)]" />
+        </div>
+      )}
+
+      {/* HUD DE DETECCIONES ESPACIALES */}
+      <div className="absolute inset-0 z-20 pointer-events-none">
+        {detections.map((det, index) => (
+          <div key={`${index}`} className="absolute animate-in fade-in zoom-in duration-700" style={{ left: `${det.x}%`, top: `${det.y}%` }}>
+            <div className="bg-primary/20 backdrop-blur-xl border border-primary/40 px-5 py-2 rounded-full -translate-x-1/2 -translate-y-1/2 shadow-2xl">
+              <span className="text-white text-[10px] font-headline font-bold uppercase tracking-widest">{det.translatedText}</span>
             </div>
-          ))}
-        </div>
-
-        {/* Telemetría */}
-        <div className="absolute top-10 left-10 z-30 flex flex-col gap-3 pointer-events-none">
-          <div className="glass-panel px-4 py-2 rounded-2xl flex items-center gap-3 border-primary/20">
-            <MousePointer2 className="w-4 h-4 text-primary animate-bounce" />
-            <span className="text-[10px] text-white font-headline font-bold uppercase tracking-widest">Toca para Escanear</span>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* Dashboard Inferior */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-[90%] max-w-xl pointer-events-none">
-          <div className="glass-panel p-6 rounded-[2.5rem] bg-black/60 backdrop-blur-3xl border-white/10 shadow-2xl flex flex-col items-center text-center">
-            {isProcessing ? (
-              <div className="flex flex-col items-center gap-3 py-2">
-                <Sparkles className="w-6 h-6 text-primary animate-spin" />
-                <span className="text-xs font-headline text-primary uppercase tracking-[0.2em] animate-pulse">Analizando...</span>
+      {/* TELEMETRÍA SUPERIOR */}
+      <div className="absolute top-10 left-10 right-10 z-30 flex justify-between items-start pointer-events-none">
+        <div className="glass-panel px-5 py-2.5 rounded-full flex items-center gap-3 border-white/5 bg-black/20 backdrop-blur-md">
+          <MousePointer2 className="w-3.5 h-3.5 text-primary animate-bounce" />
+          <span className="text-[9px] text-white/60 font-headline font-bold uppercase tracking-[0.2em]">Toca cualquier texto</span>
+        </div>
+        
+        <div className="glass-panel px-5 py-2.5 rounded-full flex items-center gap-3 border-white/5 bg-black/20 backdrop-blur-md">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-[9px] text-white/60 font-headline font-bold uppercase tracking-[0.2em]">Live HUD</span>
+        </div>
+      </div>
+
+      {/* DASHBOARD FLOTANTE INFERIOR */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-xl pointer-events-none">
+        <div className="bg-zinc-950/40 backdrop-blur-2xl border border-white/[0.08] rounded-[2.5rem] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col items-center text-center transition-all duration-500">
+          {isProcessing ? (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="relative">
+                <Sparkles className="w-8 h-8 text-primary animate-spin" />
+                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
               </div>
-            ) : latestDetection ? (
-              <div className="w-full space-y-2 animate-in fade-in">
-                <p className="text-xs text-primary font-medium italic opacity-70">"{latestDetection.original}"</p>
-                <p className="text-lg md:text-xl font-headline font-bold text-white tracking-tight">{latestDetection.translated}</p>
+              <span className="text-[10px] font-headline text-primary font-bold uppercase tracking-[0.3em]">Analizando Espacio...</span>
+            </div>
+          ) : latestDetection ? (
+            <div className="w-full space-y-3 animate-in fade-in slide-in-from-bottom-2">
+              <div className="flex items-center justify-center gap-2 text-white/40">
+                <Info className="w-3 h-3" />
+                <span className="text-[9px] uppercase tracking-widest font-bold">Detección Confirmada</span>
               </div>
-            ) : (
-              <span className="text-[10px] font-headline text-white/40 uppercase tracking-[0.3em] py-4">Sistema de Visión Listo</span>
-            )}
-          </div>
+              <p className="text-xs text-primary/80 font-medium italic">"{latestDetection.original}"</p>
+              <p className="text-xl md:text-2xl font-headline font-bold text-white tracking-tight leading-tight">{latestDetection.translated}</p>
+            </div>
+          ) : (
+            <div className="py-4 space-y-1">
+              <span className="text-[10px] font-headline text-white/40 uppercase tracking-[0.4em]">Visión Espacial SoftIA</span>
+              <p className="text-[8px] text-white/20 uppercase tracking-widest">Enfoca y toca para traducir</p>
+            </div>
+          )}
         </div>
       </div>
     </main>
