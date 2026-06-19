@@ -10,9 +10,21 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescri
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export function ConversacionMobile() {
   const logic = useConversacion();
+  const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
+  const [sessionName, setSessionName] = useState('');
 
   // Historial cronológico invertido
   const chronologicalHistory = [...logic.history].reverse();
@@ -31,7 +43,7 @@ export function ConversacionMobile() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden mb-12 relative z-10">
+      <div className="flex-1 flex flex-col gap-4 overflow-hidden mb-12 relative z-10 min-h-0">
         {/* PANEL DE USUARIO LOCAL (ESPAÑOL) */}
         <motion.div 
           layout
@@ -42,7 +54,7 @@ export function ConversacionMobile() {
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={cn(
-            "relative rounded-[2.5rem] p-6 border flex flex-col justify-start overflow-hidden cursor-pointer hover:bg-primary/[0.03] transition-all", 
+            "relative rounded-[2.5rem] p-6 border flex flex-col justify-start overflow-hidden cursor-pointer hover:bg-primary/[0.03] transition-all min-h-0", 
             logic.isNativeTurn ? "bg-primary/10 border-primary/40 shadow-neon-primary" : "bg-white/[0.02] border-white/5"
           )}
         >
@@ -91,7 +103,7 @@ export function ConversacionMobile() {
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={cn(
-            "relative rounded-[2.5rem] p-6 border flex flex-col justify-start overflow-hidden cursor-pointer hover:bg-secondary/[0.03] transition-all", 
+            "relative rounded-[2.5rem] p-6 border flex flex-col justify-start overflow-hidden cursor-pointer hover:bg-secondary/[0.03] transition-all min-h-0", 
             !logic.isNativeTurn ? "bg-secondary/10 border-secondary/40 shadow-neon-secondary" : "bg-white/[0.02] border-white/5"
           )}
         >
@@ -218,6 +230,17 @@ export function ConversacionMobile() {
                   {logic.isCameraActive ? "Activada" : "Desactivada"}
                 </Button>
               </div>
+              <div className="glass-panel p-4 rounded-2xl flex justify-between items-center bg-white/[0.02]">
+                <Label className="text-xs uppercase text-white/60 tracking-widest font-bold">Conectividad</Label>
+                <Button 
+                  onClick={() => {
+                    import('./use-multiplayer-sync').then(m => m.useMultiplayerSync().createRoom());
+                  }} 
+                  className="h-10 px-6 rounded-xl transition-colors bg-primary/10 text-primary hover:bg-primary/20"
+                >
+                  Conectar (Próximamente)
+                </Button>
+              </div>
             </div>
           </SheetContent>
         </Sheet>
@@ -231,13 +254,25 @@ export function ConversacionMobile() {
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="bg-zinc-950/95 backdrop-blur-3xl border-white/10 rounded-t-[2.5rem] pb-8 px-6 h-[70vh] flex flex-col">
-            <SheetHeader className="mt-4 shrink-0">
-              <SheetTitle className="text-white text-left font-headline flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-primary" />
-                Historial de Conversación
-              </SheetTitle>
-              <SheetDescription className="text-white/40 text-left">Registro de todos los mensajes traducidos.</SheetDescription>
-            </SheetHeader>
+            <div className="mt-4 shrink-0 flex flex-row items-start justify-between">
+              <SheetHeader>
+                <SheetTitle className="text-white text-left font-headline flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  Historial de Conversación
+                </SheetTitle>
+                <SheetDescription className="text-white/40 text-left">Registro de todos los mensajes traducidos.</SheetDescription>
+              </SheetHeader>
+              {logic.history.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="h-8 text-[10px] uppercase tracking-wider font-bold ml-4"
+                  onClick={() => setIsFinishDialogOpen(true)}
+                >
+                  Finalizar
+                </Button>
+              )}
+            </div>
             
             <ScrollArea className="flex-1 mt-6 border border-white/5 rounded-2xl bg-white/[0.02] p-4">
               {logic.history.length === 0 ? (
@@ -261,6 +296,46 @@ export function ConversacionMobile() {
           </SheetContent>
         </Sheet>
       </div>
+
+      <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-zinc-950 border-white/10 text-white w-[90vw] rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle>Finalizar Conversación</DialogTitle>
+            <DialogDescription className="text-white/50">
+              Ingresa un nombre para guardar esta conversación.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2 py-4">
+            <Input
+              placeholder="Ej: Con Juan en el café..."
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+            />
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1 text-white/70 hover:text-white hover:bg-white/10"
+              onClick={() => setIsFinishDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 bg-primary hover:bg-primary/90 text-white"
+              onClick={() => {
+                logic.saveAndClearConversation(sessionName || 'Conversación sin nombre');
+                setIsFinishDialogOpen(false);
+                setSessionName('');
+              }}
+            >
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

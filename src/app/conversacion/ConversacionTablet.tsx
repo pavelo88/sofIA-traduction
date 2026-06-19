@@ -8,22 +8,50 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export function ConversacionTablet() {
   const logic = useConversacion();
   const [isTableModeActive, setIsTableModeActive] = useState(false);
+  const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
+  const [sessionName, setSessionName] = useState('');
 
   // Historial cronológico invertido
   const chronologicalHistory = [...logic.history].reverse();
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col p-10 pb-32">
+    <div className="h-[100dvh] overflow-hidden bg-black text-white flex flex-col p-10 pb-32">
       <header className="flex justify-between items-center mb-10">
         <div className="flex items-center gap-4">
           <Sparkles className="w-6 h-6 text-primary" />
           <h1 className="font-headline font-bold text-2xl tracking-tight">Nexus Tablet</h1>
         </div>
         <div className="flex items-center gap-4">
+          <Button
+            onClick={() => {
+              import('./use-multiplayer-sync').then(m => m.useMultiplayerSync().createRoom());
+            }}
+            className="h-12 px-6 rounded-2xl border transition-all duration-500 font-headline uppercase text-[10px] tracking-widest font-bold bg-primary/10 text-primary border-primary/20 shadow-neon-primary hover:bg-primary/20"
+          >
+            Conectar
+          </Button>
+          {logic.history.length > 0 && (
+            <Button 
+              variant="destructive" 
+              className="h-12 px-6 rounded-2xl transition-all duration-500 font-headline uppercase text-[10px] tracking-widest font-bold"
+              onClick={() => setIsFinishDialogOpen(true)}
+            >
+              Finalizar Conversación
+            </Button>
+          )}
           <Button
             onClick={() => setIsTableModeActive(!isTableModeActive)}
             className={cn("h-12 px-6 rounded-2xl border transition-all duration-500 font-headline uppercase text-[10px] tracking-widest font-bold", isTableModeActive ? "bg-primary text-white border-primary/50 shadow-neon-primary" : "bg-white/[0.02] border-white/10 text-white/60")}
@@ -34,7 +62,7 @@ export function ConversacionTablet() {
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-2 gap-10">
+      <div className="flex-1 grid grid-cols-2 gap-10 min-h-0">
         {/* PANEL DE USUARIO LOCAL */}
         <motion.div 
           layout
@@ -44,7 +72,7 @@ export function ConversacionTablet() {
             opacity: logic.isNativeTurn ? 1 : 0.5
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-start border transition-colors cursor-pointer hover:bg-primary/[0.03]", logic.isNativeTurn ? "border-primary/40 bg-gradient-to-br from-primary/10 to-transparent shadow-neon-primary" : "border-white/5 bg-white/[0.02]")}
+          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-start border transition-colors cursor-pointer hover:bg-primary/[0.03] min-h-0", logic.isNativeTurn ? "border-primary/40 bg-gradient-to-br from-primary/10 to-transparent shadow-neon-primary" : "border-white/5 bg-white/[0.02]")}
         >
           <div className="flex items-center gap-4 mb-6">
             <User className={cn("w-8 h-8", logic.isNativeTurn ? "text-primary" : "text-white/40")} />
@@ -85,7 +113,7 @@ export function ConversacionTablet() {
             opacity: !logic.isNativeTurn ? 1 : 0.5
           }}
           transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-start border transition-colors items-end text-right cursor-pointer hover:bg-secondary/[0.03]", !logic.isNativeTurn ? "border-secondary/40 bg-gradient-to-br from-secondary/10 to-transparent shadow-neon-secondary" : "border-white/5 bg-white/[0.02]", isTableModeActive && "rotate-180")}
+          className={cn("glass-panel rounded-[3rem] p-12 flex flex-col justify-start border transition-colors items-end text-right cursor-pointer hover:bg-secondary/[0.03] min-h-0", !logic.isNativeTurn ? "border-secondary/40 bg-gradient-to-br from-secondary/10 to-transparent shadow-neon-secondary" : "border-white/5 bg-white/[0.02]", isTableModeActive && "rotate-180")}
         >
           <div className="flex items-center gap-4 mb-6">
             <span className="text-xs uppercase font-headline font-bold text-white/50">Invitado</span>
@@ -190,6 +218,46 @@ export function ConversacionTablet() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-zinc-950 border-white/10 text-white w-[90vw] rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle>Finalizar Conversación</DialogTitle>
+            <DialogDescription className="text-white/50">
+              Ingresa un nombre para guardar esta conversación.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2 py-4">
+            <Input
+              placeholder="Ej: Reunión con cliente..."
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+            />
+          </div>
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1 text-white/70 hover:text-white hover:bg-white/10"
+              onClick={() => setIsFinishDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 bg-primary hover:bg-primary/90 text-white"
+              onClick={() => {
+                logic.saveAndClearConversation(sessionName || 'Conversación sin nombre');
+                setIsFinishDialogOpen(false);
+                setSessionName('');
+              }}
+            >
+              Guardar y Limpiar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

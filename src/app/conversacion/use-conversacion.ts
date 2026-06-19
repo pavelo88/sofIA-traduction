@@ -88,7 +88,9 @@ export function useConversacion() {
     addCredits,
     setIsProfileOpen,
     conversationHistory,
-    addConversationItem
+    addConversationItem,
+    saveAndClearConversation,
+    clearConversation
   } = useStore();
 
   const { user } = useUser();
@@ -305,69 +307,77 @@ export function useConversacion() {
       } catch (e) {}
       recognitionRef.current = null;
     }
+    // Liberar recursos de audio inmediatamente para un reinicio limpio
+    stopAudioAnalyzer();
 
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
+    // Timeout de gracia para asegurar que el hardware libere el micrófono 
+    // antes de reabrirlo con la nueva configuración de idioma.
+    setTimeout(() => {
+      if (isProcessingRef.current) return;
 
-    const langMapping: Record<string, string> = {
-      "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
-      "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
-      "Árabe": "ar-SA", "Ruso": "ru-RU"
-    };
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
 
-    const currentLang = isNativeTurnRef.current ? nativeLangRef.current : targetLangRef.current;
-    recognition.lang = langMapping[currentLang] || 'en-US';
-    
-    // Grabación manual continua estricta
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+      const langMapping: Record<string, string> = {
+        "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
+        "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
+        "Árabe": "ar-SA", "Ruso": "ru-RU"
+      };
 
-    recognition.onstart = () => {
-      setIsRecording(true);
-      startAudioAnalyzer();
-      setLiveTranscript('');
-      currentTranscriptRef.current = '';
-    };
+      const currentLang = isNativeTurnRef.current ? nativeLangRef.current : targetLangRef.current;
+      recognition.lang = langMapping[currentLang] || 'en-US';
+      
+      // Grabación manual continua estricta
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
-    recognition.onresult = (event: any) => {
-      let accumulated = '';
-      for (let i = 0; i < event.results.length; i++) {
-        accumulated += event.results[i][0].transcript + ' ';
-      }
-      const finalVal = accumulated.trim();
-      currentTranscriptRef.current = finalVal;
-      setLiveTranscript(finalVal);
-    };
+      recognition.onstart = () => {
+        setIsRecording(true);
+        startAudioAnalyzer();
+        setLiveTranscript('');
+        currentTranscriptRef.current = '';
+      };
 
-    recognition.onend = () => {
-      setIsRecording(false);
-      stopAudioAnalyzer();
-    };
-
-    recognition.onerror = (e: any) => {
-      setIsRecording(false);
-      stopAudioAnalyzer();
-      if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        console.warn('[SoftIA Voice] Error de reconocimiento:', e.error);
-      }
-    };
-
-    try {
-      recognition.start();
-    } catch (err) {
-      console.warn('[SoftIA Voice] Error al iniciar, reintentando...', err);
-      try {
-        recognition.stop();
-      } catch (e) {}
-      setTimeout(() => {
-        try {
-          recognition.start();
-        } catch (retryErr) {
-          console.error('[SoftIA Voice] Fallo definitivo al iniciar micrófono:', retryErr);
+      recognition.onresult = (event: any) => {
+        let accumulated = '';
+        for (let i = 0; i < event.results.length; i++) {
+          accumulated += event.results[i][0].transcript + ' ';
         }
-      }, 300);
-    }
+        const finalVal = accumulated.trim();
+        currentTranscriptRef.current = finalVal;
+        setLiveTranscript(finalVal);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+        stopAudioAnalyzer();
+      };
+
+      recognition.onerror = (e: any) => {
+        setIsRecording(false);
+        stopAudioAnalyzer();
+        if (e.error !== 'aborted' && e.error !== 'no-speech') {
+          console.warn('[SoftIA Voice] Error de reconocimiento:', e.error);
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch (err) {
+        console.warn('[SoftIA Voice] Error al iniciar, reintentando...', err);
+        try {
+          recognition.stop();
+        } catch (e) {}
+        setTimeout(() => {
+          try {
+            recognition.start();
+          } catch (retryErr) {
+            console.error('[SoftIA Voice] Fallo definitivo al iniciar micrófono:', retryErr);
+          }
+        }, 300);
+      }
+    }, 150);
   }, [triggerSilenceAlert]);
 
   /**
@@ -516,7 +526,11 @@ export function useConversacion() {
     setIsSpeaking(false);
     stopAudioAnalyzer();
     setLiveTranscript('');
-    setIsNativeTurn(prev => !prev);
+    setIsNativeTurn(prev => {
+      const next = !prev;
+      isNativeTurnRef.current = next; // Force immediate sync to avoid race conditions
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -553,6 +567,7 @@ export function useConversacion() {
     history, toggleSession, toggleTurn, startListening, streamRef,
     nativeLanguage, targetLanguage,
     userVoiceGender, partnerVoiceGender,
-    audioLevels, liveTranscript
+    audioLevels, liveTranscript,
+    saveAndClearConversation, clearConversation
   };
 }

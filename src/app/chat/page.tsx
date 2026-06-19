@@ -16,6 +16,7 @@ type Message = {
   content: string;
   evaluation?: string;
   suggestion?: string;
+  isHidden?: boolean;
 };
 
 export default function KittenChat() {
@@ -69,11 +70,11 @@ export default function KittenChat() {
     recognition.start();
   };
 
-  const handleSend = async (textOverride?: string) => {
+  const handleSend = async (textOverride?: string, isHidden: boolean = false) => {
     const finalText = textOverride || input;
     if (!finalText.trim() || isLoading) return;
 
-    const userMsg: Message = { role: 'user', content: finalText };
+    const userMsg: Message = { role: 'user', content: finalText, isHidden };
     setMessages(prev => [...prev, userMsg]);
     if (!textOverride) setInput('');
     setIsLoading(true);
@@ -128,20 +129,33 @@ export default function KittenChat() {
     }
   };
 
+  const handleSummary = () => {
+    handleSend("Por favor genera un resumen pedagógico de nuestra charla de hoy, destacando las palabras clave aprendidas y los errores comunes que debo mejorar. Usa un tono animado y amigable, como un tutor.", true);
+  };
+
   return (
     <main className="min-h-screen p-6 pb-[100px] lg:pb-16 flex flex-col max-w-5xl mx-auto w-full">
-      <header className="mb-8">
+      <header className="mb-8 flex justify-between items-center">
         <h1 className="font-headline text-3xl flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
             <Star className="text-primary w-5 h-5 fill-primary" />
           </div>
           SoftIA Kitten Tutor
         </h1>
+        <Button 
+          variant="outline" 
+          onClick={handleSummary}
+          disabled={isLoading || messages.length < 3}
+          className="rounded-full border-primary/30 text-primary hover:bg-primary/10"
+        >
+          <Star className="w-4 h-4 mr-2" />
+          Resumen del Día
+        </Button>
       </header>
 
       <div className="flex-1 glass-panel rounded-3xl border-white/5 flex flex-col overflow-hidden mb-6">
         <div ref={scrollRef} className="flex-1 p-6 overflow-y-auto space-y-6">
-            {messages.map((msg, i) => (
+            {messages.filter(m => !m.isHidden).map((msg, i) => (
               <div key={i} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in slide-in-from-bottom-2`}>
                 <Avatar className={cn("shrink-0 flex items-center justify-center", msg.role === 'user' ? 'bg-secondary/20' : 'bg-primary/20')}>
                   {msg.role === 'user' ? <span className="text-lg">👤</span> : <Star className="text-primary fill-primary w-4 h-4" />}

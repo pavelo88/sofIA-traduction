@@ -7,12 +7,24 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export function ConversacionDesktop() {
   const logic = useConversacion();
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
+  const [sessionName, setSessionName] = useState('');
 
   // Historial cronológico invertido
   const chronologicalHistory = [...logic.history].reverse();
@@ -27,10 +39,10 @@ export function ConversacionDesktop() {
     <div className="h-[calc(100vh-2rem)] w-full text-white p-6 grid grid-cols-12 gap-6 overflow-hidden">
       
       {/* SECCIÓN PRINCIPAL DE INTERMEDIACIÓN (8 COLUMNAS) */}
-      <main className="col-span-8 flex flex-col gap-6 h-full">
+      <main className="col-span-8 flex flex-col gap-6 h-full min-h-0">
         
         {/* PANEL DUAL DE DIÁLOGO DINÁMICO */}
-        <div className="flex-1 flex flex-col gap-6">
+        <div className="flex-1 flex flex-col gap-6 min-h-0">
           
           {/* PANEL DE USUARIO LOCAL */}
           <motion.div 
@@ -43,7 +55,7 @@ export function ConversacionDesktop() {
             }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             className={cn(
-              "glass-panel rounded-[2.5rem] p-8 flex flex-col justify-start relative cursor-pointer group overflow-hidden border",
+              "glass-panel rounded-[2.5rem] p-8 flex flex-col justify-start relative cursor-pointer group overflow-hidden border min-h-0",
               logic.isNativeTurn 
                 ? "border-primary/40 bg-gradient-to-br from-primary/10 to-transparent shadow-neon-primary z-10" 
                 : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04] z-0"
@@ -132,7 +144,7 @@ export function ConversacionDesktop() {
             }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             className={cn(
-              "glass-panel rounded-[2.5rem] p-8 flex flex-col justify-start relative cursor-pointer group overflow-hidden border",
+              "glass-panel rounded-[2.5rem] p-8 flex flex-col justify-start relative cursor-pointer group overflow-hidden border min-h-0",
               !logic.isNativeTurn 
                 ? "border-secondary/40 bg-gradient-to-br from-secondary/10 to-transparent shadow-neon-secondary z-10" 
                 : "border-white/5 bg-white/[0.02] hover:bg-white/[0.04] z-0"
@@ -284,6 +296,15 @@ export function ConversacionDesktop() {
           <div className="flex items-center gap-4 relative z-10">
             <Button
               variant="outline"
+              onClick={() => {
+                import('./use-multiplayer-sync').then(m => m.useMultiplayerSync().createRoom());
+              }}
+              className="h-12 px-5 rounded-2xl bg-primary/10 border-primary/20 text-primary hover:text-white hover:bg-primary/30 flex items-center gap-2 transition-all"
+            >
+              <Wifi className="w-4 h-4" /> Conectar
+            </Button>
+            <Button
+              variant="outline"
               onClick={logic.toggleTurn}
               className="h-12 px-5 rounded-2xl bg-white/5 border-white/10 text-white/70 hover:text-white flex items-center gap-2 hover:bg-white/10 transition-all"
             >
@@ -295,7 +316,7 @@ export function ConversacionDesktop() {
       </main>
 
       {/* SECCIÓN LATERAL DE TELEMETRÍA (4 COLUMNAS) */}
-      <aside className="col-span-4 flex flex-col gap-6 h-full">
+      <aside className="col-span-4 flex flex-col gap-6 h-full min-h-0">
         
         {/* FEED DE CÁMARA (TRANSLUCIDO) */}
         <div className="glass-panel aspect-video rounded-[2.5rem] overflow-hidden border-white/10 bg-black/40 relative shadow-2xl group">
@@ -314,7 +335,7 @@ export function ConversacionDesktop() {
         </div>
 
         {/* HISTORIAL RÁPIDO DE DIÁLOGOS */}
-        <div className="flex-1 glass-panel rounded-[2.5rem] border-white/10 p-6 flex flex-col gap-6 overflow-hidden">
+        <div className="flex-1 glass-panel rounded-[2.5rem] border-white/10 p-6 flex flex-col gap-6 overflow-hidden min-h-0">
           <div className="flex items-center justify-between">
             <h4 className="text-[10px] font-headline uppercase tracking-[0.2em] text-white/50 font-bold">Historial de Turnos</h4>
             <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
@@ -363,11 +384,62 @@ export function ConversacionDesktop() {
               </div>
               <span className="text-[9px] font-headline font-bold uppercase tracking-wider text-emerald-400">Servicio Estable</span>
             </div>
-            <span className="text-[9px] font-headline uppercase text-white/30 bg-white/5 px-2 py-1 rounded-md">Next.js 15 · Turbopack</span>
+            {logic.history.length > 0 && (
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="h-7 text-[9px] uppercase tracking-wider font-bold"
+                onClick={() => setIsFinishDialogOpen(true)}
+              >
+                Finalizar
+              </Button>
+            )}
           </div>
         </div>
 
       </aside>
+
+      <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-zinc-950 border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle>Finalizar Conversación</DialogTitle>
+            <DialogDescription className="text-white/50">
+              Ingresa un nombre para guardar esta conversación (ej. "Con Juan") antes de limpiar la pantalla.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2 py-4">
+            <Input
+              id="name"
+              placeholder="Nombre de la sesión..."
+              value={sessionName}
+              onChange={(e) => setSessionName(e.target.value)}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-white/70 hover:text-white hover:bg-white/10"
+              onClick={() => setIsFinishDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="bg-primary hover:bg-primary/90 text-white"
+              onClick={() => {
+                logic.saveAndClearConversation(sessionName || 'Conversación sin nombre');
+                setIsFinishDialogOpen(false);
+                setSessionName('');
+              }}
+            >
+              Guardar y Limpiar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

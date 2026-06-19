@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
 import { Mic, RefreshCcw, Activity, BookOpen, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { useFirestore, useUser } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -24,9 +25,88 @@ export default function ReadingTutor() {
   const [isRecording, setIsRecording] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<PronunciationEvalOutput | null>(null);
+  
+  // Niveles de audio estilo WhatsApp
+  const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(12));
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   const { user } = useUser();
   const db = useFirestore();
+
+  const startAudioAnalyzer = async () => {
+    stopAudioAnalyzer();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      audioContextRef.current = audioContext;
+
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64; 
+      analyserRef.current = analyser;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      const checkVolume = () => {
+        if (!audioStreamRef.current) return;
+        animationFrameRef.current = requestAnimationFrame(checkVolume);
+
+        analyser.getByteFrequencyData(dataArray);
+
+        const newLevels = [];
+        const chunkSize = Math.max(1, Math.floor(bufferLength / 20));
+
+        for (let i = 0; i < 20; i++) {
+          let sum = 0;
+          for (let j = 0; j < chunkSize; j++) {
+            sum += dataArray[i * chunkSize + j] || 0;
+          }
+          const avg = sum / chunkSize;
+          newLevels.push(avg);
+        }
+
+        // Mapear a escala visual
+        const normalized = newLevels.map(v => Math.min(100, Math.max(12, (v / 255) * 100 + Math.random() * 8)));
+        setAudioLevels(normalized);
+      };
+
+      animationFrameRef.current = requestAnimationFrame(checkVolume);
+    } catch (e) {
+      console.warn('[SoftIA Voice] No se pudo activar analizador de sonido:', e);
+    }
+  };
+
+  const stopAudioAnalyzer = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    setAudioLevels(Array(20).fill(12));
+  };
+
+  useEffect(() => {
+    return () => {
+      stopAudioAnalyzer();
+    };
+  }, []);
 
   const startSpeechRecognition = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -48,6 +128,7 @@ export default function ReadingTutor() {
       setTranscription("");
       transcriptionRef.current = "";
       setEvalResult(null);
+      startAudioAnalyzer();
     };
 
     recognition.onresult = (event: any) => {
@@ -59,12 +140,14 @@ export default function ReadingTutor() {
 
     recognition.onend = () => {
       setIsRecording(false);
+      stopAudioAnalyzer();
       // Usar ref en lugar del estado para evitar el closure stale (fix C2)
       if (transcriptionRef.current) handleEvaluation(transcriptionRef.current);
     };
 
     recognition.onerror = () => {
       setIsRecording(false);
+      stopAudioAnalyzer();
       toast({ title: "Error de Audio", description: "No se pudo capturar la señal vocal.", variant: "destructive" });
     };
 
@@ -148,6 +231,24 @@ export default function ReadingTutor() {
           </div>
 
           <div className="flex flex-col items-center gap-6 pt-4 relative z-10">
+            {/* VISOR DE AUDIO ESTILO WHATSAPP */}
+            {isRecording && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-end justify-center gap-[3px] h-9 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary mb-2"
+              >
+                {audioLevels.map((level, i) => (
+                  <div 
+                    key={i} 
+                    className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
+                    style={{ height: `${level}%` }}
+                  />
+                ))}
+              </motion.div>
+            )}
+
             <Button 
               onClick={startSpeechRecognition}
               disabled={isRecording || isEvaluating}

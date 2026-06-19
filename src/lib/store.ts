@@ -16,6 +16,13 @@ export interface ConversationItem {
   timestamp: string;
 }
 
+export interface SavedSession {
+  id: string;
+  name: string;
+  date: string;
+  history: ConversationItem[];
+}
+
 interface AppState {
   isThermalThrottled: boolean;
   thermalTemperature: number;
@@ -31,6 +38,7 @@ interface AppState {
     translated: string;
   } | null;
   conversationHistory: ConversationItem[];
+  savedSessions: SavedSession[];
   
   // Infraestructura de IA y SaaS
   aiEngineMode: 'gemini' | 'deepseek' | 'device';
@@ -46,6 +54,8 @@ interface AppState {
   setUserVoiceGender: (gender: 'masculino' | 'femenino') => void;
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
   addConversationItem: (item: ConversationItem) => void;
+  saveAndClearConversation: (name: string) => void;
+  clearConversation: () => void;
   setAiEngineMode: (mode: 'gemini' | 'deepseek' | 'device') => void;
   addCredits: (amount: number) => void;
   setIsProfileOpen: (open: boolean) => void;
@@ -65,6 +75,7 @@ export const useStore = create<AppState>()(
       partnerVoiceGender: 'femenino',
       lastTranslation: null,
       conversationHistory: [],
+      savedSessions: [],
       aiEngineMode: 'gemini',
       userCredits: 25,
       isProfileOpen: false,
@@ -94,6 +105,20 @@ export const useStore = create<AppState>()(
       addConversationItem: (item) => set((state) => ({
         conversationHistory: [item, ...state.conversationHistory].slice(0, 50)
       })),
+      saveAndClearConversation: (name) => set((state) => {
+        if (state.conversationHistory.length === 0) return state;
+        const newSession: SavedSession = {
+          id: Math.random().toString(36).substr(2, 9),
+          name,
+          date: new Date().toISOString(),
+          history: [...state.conversationHistory]
+        };
+        return {
+          savedSessions: [newSession, ...state.savedSessions],
+          conversationHistory: []
+        };
+      }),
+      clearConversation: () => set({ conversationHistory: [] }),
       setAiEngineMode: (mode) => set({ aiEngineMode: mode }),
       addCredits: (amount) => set((state) => ({ userCredits: state.userCredits + amount })),
       setIsProfileOpen: (open) => set({ isProfileOpen: open }),
@@ -107,6 +132,7 @@ export const useStore = create<AppState>()(
         userVoiceGender: state.userVoiceGender,
         partnerVoiceGender: state.partnerVoiceGender,
         conversationHistory: state.conversationHistory,
+        savedSessions: state.savedSessions,
         learningProgress: state.learningProgress,
         aiEngineMode: state.aiEngineMode,
         userCredits: state.userCredits,
