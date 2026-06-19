@@ -5,7 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 /**
  * @interface AppState
  * Estado global con persistencia híbrida (Firebase/LocalStorage).
- * Refactorización v4.0: Persistencia atómica y soporte para Modo Invitado.
+ * Refactorización v5.0: Gestión de créditos e infraestructura de IA.
  */
 
 export interface ConversationItem {
@@ -32,6 +32,10 @@ interface AppState {
   } | null;
   conversationHistory: ConversationItem[];
   
+  // Nuevos estados para SaaS Premium
+  aiEngineMode: 'cloud' | 'local';
+  userCredits: number;
+  
   // Setters
   setThermalTemperature: (temp: number) => void;
   updateTranslation: (original: string, translated: string) => void;
@@ -41,6 +45,8 @@ interface AppState {
   setUserVoiceGender: (gender: 'masculino' | 'femenino') => void;
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
   addConversationItem: (item: ConversationItem) => void;
+  setAiEngineMode: (mode: 'cloud' | 'local') => void;
+  addCredits: (amount: number) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -57,6 +63,8 @@ export const useStore = create<AppState>()(
       partnerVoiceGender: 'femenino',
       lastTranslation: null,
       conversationHistory: [],
+      aiEngineMode: 'cloud',
+      userCredits: 25,
 
       setThermalTemperature: (temp) => set((state) => {
         const isThrottled = temp > 45;
@@ -83,6 +91,8 @@ export const useStore = create<AppState>()(
       addConversationItem: (item) => set((state) => ({
         conversationHistory: [item, ...state.conversationHistory].slice(0, 50)
       })),
+      setAiEngineMode: (mode) => set({ aiEngineMode: mode }),
+      addCredits: (amount) => set((state) => ({ userCredits: state.userCredits + amount })),
     }),
     {
       name: 'softia-core-storage',
@@ -94,6 +104,8 @@ export const useStore = create<AppState>()(
         partnerVoiceGender: state.partnerVoiceGender,
         conversationHistory: state.conversationHistory,
         learningProgress: state.learningProgress,
+        aiEngineMode: state.aiEngineMode,
+        userCredits: state.userCredits,
       }),
     }
   )
