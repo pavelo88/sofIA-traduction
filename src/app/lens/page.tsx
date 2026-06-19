@@ -165,7 +165,7 @@ export default function ARLens() {
         </div>
       </div>
 
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-xl pointer-events-none">
+      <div className="absolute bottom-[100px] lg:bottom-10 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-xl pointer-events-none">
         <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/[0.08] rounded-[2.5rem] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col items-center text-center transition-all duration-700 pointer-events-auto">
           {isProcessing ? (
             <div className="flex flex-col items-center gap-5 py-2">

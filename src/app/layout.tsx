@@ -1,15 +1,10 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { BottomNav } from '@/components/layout/bottom-nav';
-
-/**
- * RootLayout: Estructura base de SoftIA.
- * Forzamos una actualización de renderizado para sincronizar variables de entorno (Ref: EnvSync_v4_Stable).
- */
+import { SidebarNav } from '@/components/layout/sidebar-nav';
 
 export const metadata: Metadata = {
   title: 'SoftIA Translate | AR Spatial Learning',
@@ -28,10 +23,13 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased bg-background text-foreground overflow-x-hidden pb-24">
+      <body className="font-body antialiased bg-background text-foreground overflow-x-hidden pb-24 lg:pb-0">
         <FirebaseClientProvider>
-          <div className="min-h-screen flex flex-col">
-            {children}
+          <div className="min-h-screen flex lg:flex-row">
+            <SidebarNav />
+            <div className="flex-1 lg:pl-[19rem] w-full min-h-screen flex flex-col">
+              {children}
+            </div>
           </div>
           <BottomNav />
           <FirebaseErrorListener />

@@ -26,6 +26,11 @@
     --input: 264 15% 20%;
     --ring: 265 89% 68%;
     --radius: 1.5rem;
+    /* Tipografías */
+    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-headline: 'Space Grotesk', sans-serif;
+    /* Safe area para nav móvil */
+    --nav-height: 90px;
   }
 }
 
@@ -34,18 +39,25 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body antialiased selection:bg-primary/30;
+    font-family: var(--font-body);
+    @apply bg-background text-foreground antialiased selection:bg-primary/30;
     background-image: 
       radial-gradient(at 0% 0%, hsla(265, 89%, 68%, 0.1) 0px, transparent 50%),
       radial-gradient(at 100% 100%, hsla(231, 82%, 78%, 0.1) 0px, transparent 50%);
     min-height: 100vh;
   }
+  
+  /* Scrollbar personalizado */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(161, 98, 247, 0.3); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(161, 98, 247, 0.6); }
 }
 
-/* Glassmorphism 2.0 */
+/* Glassmorphism Refinado 2025 */
 .glass-panel {
-  @apply bg-card/40 backdrop-blur-2xl border border-white/10 shadow-2xl;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  @apply bg-zinc-950/60 backdrop-blur-3xl border border-white/10 shadow-2xl;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
 }
 
 .glass-card {
@@ -82,4 +94,49 @@
 
 .animate-pulse-glow {
   animation: pulse-glow 3s infinite;
+}
+
+/* Nuevas utilidades de Sombras Dinámicas y Animaciones de Audio */
+.shadow-neon-primary {
+  box-shadow: 0 0 40px -10px rgba(161, 98, 247, 0.4), inset 0 0 20px -10px rgba(161, 98, 247, 0.2);
+}
+
+.shadow-neon-secondary {
+  box-shadow: 0 0 40px -10px rgba(155, 168, 245, 0.4), inset 0 0 20px -10px rgba(155, 168, 245, 0.2);
+}
+
+.shadow-neon-emerald {
+  box-shadow: 0 0 40px -10px rgba(16, 185, 129, 0.3), inset 0 0 20px -10px rgba(16, 185, 129, 0.15);
+}
+
+.text-gradient-primary {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-400;
+}
+
+@keyframes soundwave {
+  0% { height: 3px; }
+  50% { height: 100%; }
+  100% { height: 3px; }
+}
+
+.animate-soundwave {
+  animation: soundwave 0.8s ease-in-out infinite;
+  border-radius: 2px; /* Fix P2: barras redondeadas */
+  min-height: 3px;
+}
+
+/* Tipografías aplicadas */
+.font-body {
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif);
+}
+
+/* Padding seguro para nav móvil (evita colisión en rutas normales) */
+.mobile-safe-bottom {
+  padding-bottom: var(--nav-height, 90px);
+}
+
+@media (min-width: 1024px) {
+  .mobile-safe-bottom {
+    padding-bottom: 1.5rem;
+  }
 }

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from 'react';
-import { SidebarNav } from '@/components/layout/sidebar-nav';
-import { aiTutorConversation, type AITutorConversationOutput } from '@/ai/flows/ai-tutor-conversation';
-import { Send, Sparkles, User, Star } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { useStore } from '@/lib/store';
+import { aiTutorConversation } from '@/ai/flows/ai-tutor-conversation';
+import { Send, Star, Mic, MicOff } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 type Message = {
   role: 'user' | 'model';
@@ -22,20 +24,60 @@ export default function KittenChat() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const { nativeLanguage, targetLanguage } = useStore();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  // Auto-scroll al último mensaje
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
-    const userMsg: Message = { role: 'user', content: input };
+  const toggleVoice = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ title: "Voz no disponible", description: "Tu navegador no soporta reconocimiento de voz." });
+      return;
+    }
+    if (isVoiceActive && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsVoiceActive(false);
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = nativeLanguage === 'Español' ? 'es-ES' : 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onstart = () => setIsVoiceActive(true);
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      if (transcript) handleSend(transcript);
+    };
+    recognition.onend = () => setIsVoiceActive(false);
+    recognition.onerror = () => setIsVoiceActive(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+  };
+
+  const handleSend = async (textOverride?: string) => {
+    const finalText = textOverride || input;
+    if (!finalText.trim() || isLoading) return;
+
+    const userMsg: Message = { role: 'user', content: finalText };
     setMessages(prev => [...prev, userMsg]);
-    setInput('');
+    if (!textOverride) setInput('');
     setIsLoading(true);
 
     try {
       const history = messages.map(m => ({ role: m.role, content: m.content }));
       const response = await aiTutorConversation({
-        message: input,
-        chatHistory: history
+        message: finalText,
+        chatHistory: history,
+        nativeLanguage,
+        targetLanguage
       });
 
       const assistantMsg: Message = {
@@ -54,9 +96,7 @@ export default function KittenChat() {
   };
 
   return (
-    <main className="min-h-screen p-6 md:pl-32 pb-32 flex flex-col max-w-5xl mx-auto">
-      <SidebarNav />
-
+    <main className="min-h-screen p-6 pb-[100px] lg:pb-16 flex flex-col max-w-5xl mx-auto w-full">
       <header className="mb-8">
         <h1 className="font-headline text-3xl flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
@@ -67,15 +107,14 @@ export default function KittenChat() {
       </header>
 
       <div className="flex-1 glass-panel rounded-3xl border-white/5 flex flex-col overflow-hidden mb-6">
-        <ScrollArea className="flex-1 p-6">
-          <div className="space-y-6">
+        <div ref={scrollRef} className="flex-1 p-6 overflow-y-auto space-y-6">
             {messages.map((msg, i) => (
               <div key={i} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''} animate-in fade-in slide-in-from-bottom-2`}>
-                <Avatar className={msg.role === 'user' ? 'bg-secondary/20' : 'bg-primary/20'}>
-                  {msg.role === 'user' ? <User className="text-secondary" /> : <Star className="text-primary fill-primary" />}
+                <Avatar className={cn("shrink-0 flex items-center justify-center", msg.role === 'user' ? 'bg-secondary/20' : 'bg-primary/20')}>
+                  {msg.role === 'user' ? <span className="text-lg">👤</span> : <Star className="text-primary fill-primary w-4 h-4" />}
                 </Avatar>
                 
-                <div className={`max-w-[80%] space-y-2 ${msg.role === 'user' ? 'items-end' : ''}`}>
+                <div className={`max-w-[80%] space-y-2 flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                   <div className={`p-4 rounded-2xl text-sm ${
                     msg.role === 'user' 
                       ? 'bg-secondary text-secondary-foreground rounded-tr-none' 
@@ -85,15 +124,15 @@ export default function KittenChat() {
                   </div>
 
                   {msg.evaluation && (
-                    <div className="p-4 bg-primary/10 border border-primary/30 rounded-2xl text-xs space-y-2">
-                      <p className="font-headline text-primary uppercase tracking-tighter">Evaluación</p>
+                    <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-xs space-y-1">
+                      <p className="font-headline text-primary uppercase tracking-tighter text-[10px]">Evaluación</p>
                       <p className="text-white/80">{msg.evaluation}</p>
                     </div>
                   )}
 
                   {msg.suggestion && (
-                    <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-xs space-y-2 italic text-muted-foreground">
-                      <p className="font-headline text-white/60">Sugerencia de Kitten</p>
+                    <div className="p-3 bg-white/5 border border-white/10 rounded-2xl text-xs space-y-1 italic text-muted-foreground">
+                      <p className="font-headline text-white/60 text-[10px]">Sugerencia de Kitten</p>
                       <p>{msg.suggestion}</p>
                     </div>
                   )}
@@ -102,22 +141,31 @@ export default function KittenChat() {
             ))}
             {isLoading && (
               <div className="flex gap-4 animate-pulse">
-                <Avatar className="bg-primary/20" />
+                <Avatar className="bg-primary/20 shrink-0 flex items-center justify-center"><Star className="text-primary w-4 h-4" /></Avatar>
                 <div className="bg-white/5 h-12 w-32 rounded-2xl" />
               </div>
             )}
-          </div>
-        </ScrollArea>
+        </div>
 
-        <div className="p-6 border-t border-white/5 bg-white/5 flex gap-4">
+        <div className="p-6 border-t border-white/5 bg-white/5 flex gap-3">
           <Input 
-            placeholder="Pregúntale algo a Kitten o escribe una frase para evaluar..." 
+            placeholder={isVoiceActive ? "Kitten te escucha..." : "Escribe o habla con Kitten..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            className="bg-background/50 border-white/10 h-14 rounded-2xl focus-visible:ring-primary"
+            className="bg-background/50 border-white/10 h-14 rounded-2xl focus-visible:ring-primary text-white"
           />
-          <Button onClick={handleSend} className="h-14 w-14 rounded-2xl squish-effect bg-primary hover:bg-primary/80">
+          <Button
+            onClick={toggleVoice}
+            disabled={isLoading}
+            className={cn(
+              "h-14 w-14 rounded-2xl squish-effect shrink-0 transition-all duration-300",
+              isVoiceActive ? "bg-rose-500 hover:bg-rose-600" : "bg-white/10 hover:bg-white/20 text-white"
+            )}
+          >
+            {isVoiceActive ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          </Button>
+          <Button onClick={() => handleSend()} disabled={isLoading || !input.trim()} className="h-14 w-14 rounded-2xl squish-effect bg-primary hover:bg-primary/80 shrink-0">
             <Send className="w-5 h-5 text-white" />
           </Button>
         </div>

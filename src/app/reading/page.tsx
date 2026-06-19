@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
 import { Mic, RefreshCcw, Activity, BookOpen, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 export default function ReadingTutor() {
   const [targetSentence] = useState("The future of spatial learning is powered by artificial intelligence.");
   const [transcription, setTranscription] = useState("");
+  const transcriptionRef = useRef(""); // Ref para evitar closure stale en onend (fix C2)
   const [isRecording, setIsRecording] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<PronunciationEvalOutput | null>(null);
@@ -45,17 +46,21 @@ export default function ReadingTutor() {
     recognition.onstart = () => {
       setIsRecording(true);
       setTranscription("");
+      transcriptionRef.current = "";
       setEvalResult(null);
     };
 
     recognition.onresult = (event: any) => {
       const current = event.resultIndex;
-      setTranscription(event.results[current][0].transcript);
+      const text = event.results[current][0].transcript;
+      transcriptionRef.current = text; // Actualizar ref inmediatamente (no esperar re-render)
+      setTranscription(text);
     };
 
     recognition.onend = () => {
       setIsRecording(false);
-      if (transcription) handleEvaluation();
+      // Usar ref en lugar del estado para evitar el closure stale (fix C2)
+      if (transcriptionRef.current) handleEvaluation(transcriptionRef.current);
     };
 
     recognition.onerror = () => {
@@ -66,31 +71,34 @@ export default function ReadingTutor() {
     recognition.start();
   };
 
-  const handleEvaluation = async () => {
-    if (!transcription || isEvaluating || !user?.uid) return;
+  const handleEvaluation = async (currentTranscription?: string) => {
+    const textToEval = currentTranscription || transcriptionRef.current;
+    if (!textToEval || isEvaluating) return;
     setIsEvaluating(true);
     try {
-      const result = await evaluatePronunciation({ targetSentence, transcription });
+      const result = await evaluatePronunciation({ targetSentence, transcription: textToEval });
       setEvalResult(result);
 
-      // Persistencia de progreso con UID real
-      const progressRef = doc(db, 'user_progress', user.uid);
-      const progressData = {
-        accuracy_percentage: result.accuracy,
-        last_grade: result.grade,
-        updated_at: new Date().toISOString(),
-        user_email: user.email || 'guest@softia.com'
-      };
+      // Persistencia de progreso con UID real (solo si el usuario está autenticado)
+      if (user?.uid) {
+        const progressRef = doc(db, 'user_progress', user.uid);
+        const progressData = {
+          accuracy_percentage: result.accuracy,
+          last_grade: result.grade,
+          updated_at: new Date().toISOString(),
+          user_email: user.email || 'guest@softia.com'
+        };
 
-      setDoc(progressRef, progressData, { merge: true })
-        .catch(async () => {
-          const permissionError = new FirestorePermissionError({
-            path: progressRef.path,
-            operation: 'write',
-            requestResourceData: progressData
+        setDoc(progressRef, progressData, { merge: true })
+          .catch(async () => {
+            const permissionError = new FirestorePermissionError({
+              path: progressRef.path,
+              operation: 'write',
+              requestResourceData: progressData
+            });
+            errorEmitter.emit('permission-error', permissionError);
           });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      }
 
       toast({ 
         title: `Sesión Finalizada: ${result.grade}`, 
@@ -104,7 +112,7 @@ export default function ReadingTutor() {
   };
 
   return (
-    <main className="relative min-h-screen bg-background overflow-hidden flex flex-col items-center justify-center p-6">
+    <main className="relative min-h-screen bg-background overflow-hidden flex flex-col items-center justify-center p-6 pb-[100px] lg:pb-6">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(161,98,247,0.08),transparent_70%)]" />
       
       <div className="relative z-10 w-full max-w-3xl animate-in zoom-in-95 duration-1000">
