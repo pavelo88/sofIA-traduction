@@ -3,15 +3,16 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
-import { Mic, RefreshCcw, Activity, BookOpen, Star } from 'lucide-react';
+import { Mic, MicOff, RefreshCcw, Activity, BookOpen, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useStore } from '@/lib/store';
 
 /**
  * @summary ReadingTutor: Sistema de evaluación de pronunciación fonética.
@@ -22,6 +23,7 @@ export default function ReadingTutor() {
   const [targetSentence] = useState("The future of spatial learning is powered by artificial intelligence.");
   const [transcription, setTranscription] = useState("");
   const transcriptionRef = useRef(""); // Ref para evitar closure stale en onend (fix C2)
+  const recognitionRef = useRef<any>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<PronunciationEvalOutput | null>(null);
@@ -35,6 +37,7 @@ export default function ReadingTutor() {
 
   const { user } = useUser();
   const db = useFirestore();
+  const { targetLanguage } = useStore();
 
   const startAudioAnalyzer = async () => {
     stopAudioAnalyzer();
@@ -108,7 +111,18 @@ export default function ReadingTutor() {
     };
   }, []);
 
-  const startSpeechRecognition = () => {
+  const toggleRecording = () => {
+    if (isRecording) {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch(e){}
+      }
+      setIsRecording(false);
+      stopAudioAnalyzer();
+      // Evaluar manual
+      if (transcriptionRef.current) handleEvaluation(transcriptionRef.current);
+      return;
+    }
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast({ 
@@ -120,7 +134,15 @@ export default function ReadingTutor() {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
+    recognitionRef.current = recognition;
+    
+    const langMapping: Record<string, string> = {
+      "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
+      "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
+      "Árabe": "ar-SA", "Ruso": "ru-RU"
+    };
+    recognition.lang = langMapping[targetLanguage] || 'en-US';
+    recognition.continuous = true;
     recognition.interimResults = true;
 
     recognition.onstart = () => {
@@ -128,21 +150,22 @@ export default function ReadingTutor() {
       setTranscription("");
       transcriptionRef.current = "";
       setEvalResult(null);
-      startAudioAnalyzer();
     };
 
     recognition.onresult = (event: any) => {
-      const current = event.resultIndex;
-      const text = event.results[current][0].transcript;
-      transcriptionRef.current = text; // Actualizar ref inmediatamente (no esperar re-render)
+      let accumulated = '';
+      for (let i = 0; i < event.results.length; i++) {
+        accumulated += event.results[i][0].transcript + ' ';
+      }
+      const text = accumulated.trim();
+      transcriptionRef.current = text;
       setTranscription(text);
     };
 
     recognition.onend = () => {
       setIsRecording(false);
       stopAudioAnalyzer();
-      // Usar ref en lugar del estado para evitar el closure stale (fix C2)
-      if (transcriptionRef.current) handleEvaluation(transcriptionRef.current);
+      // Eliminamos el handleEvaluation de onend para que solo evalúe al hacer clic en Detener.
     };
 
     recognition.onerror = () => {
@@ -151,7 +174,13 @@ export default function ReadingTutor() {
       toast({ title: "Error de Audio", description: "No se pudo capturar la señal vocal.", variant: "destructive" });
     };
 
-    recognition.start();
+    try {
+      startAudioAnalyzer();
+      recognition.start();
+    } catch (e) {
+      console.error(e);
+      stopAudioAnalyzer();
+    }
   };
 
   const handleEvaluation = async (currentTranscription?: string) => {
@@ -232,26 +261,28 @@ export default function ReadingTutor() {
 
           <div className="flex flex-col items-center gap-6 pt-4 relative z-10">
             {/* VISOR DE AUDIO ESTILO WHATSAPP */}
-            {isRecording && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-end justify-center gap-[3px] h-9 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary mb-2"
-              >
-                {audioLevels.map((level, i) => (
-                  <div 
-                    key={i} 
-                    className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
-                    style={{ height: `${level}%` }}
-                  />
-                ))}
-              </motion.div>
-            )}
+            <AnimatePresence>
+              {isRecording && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="flex items-end justify-center gap-[3px] h-9 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary mb-2"
+                >
+                  {audioLevels.map((level, i) => (
+                    <div 
+                      key={i} 
+                      className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
+                      style={{ height: `${level}%` }}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <Button 
-              onClick={startSpeechRecognition}
-              disabled={isRecording || isEvaluating}
+              onClick={toggleRecording}
+              disabled={isEvaluating}
               className={cn(
                 "h-24 w-24 rounded-full transition-all duration-500 shadow-2xl squish-effect border-8 border-background",
                 isRecording 
@@ -261,8 +292,10 @@ export default function ReadingTutor() {
             >
               {isEvaluating ? (
                 <RefreshCcw className="w-10 h-10 animate-spin" />
+              ) : isRecording ? (
+                <MicOff className="w-10 h-10 text-white" />
               ) : (
-                <Mic className={cn("w-10 h-10", isRecording && "animate-bounce")} />
+                <Mic className="w-10 h-10" />
               )}
             </Button>
             

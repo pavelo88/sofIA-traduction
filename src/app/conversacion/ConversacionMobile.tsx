@@ -1,8 +1,8 @@
 'use client';
 
-import { useConversacion } from './use-conversacion';
-import { 
-  Mic, MicOff, Camera, CameraOff, User, Users, Sparkles, Globe, Settings2, Sparkle, History, MessageSquare
+import { useConversacion, getLocalizedLabels } from './use-conversacion';
+import {
+  Mic, MicOff, Camera, CameraOff, User, Users, Sparkles, Globe, Settings2, Sparkle, History, MessageSquare, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -74,10 +74,11 @@ export function ConversacionMobile() {
             ) : (
               chronologicalHistory.map((item, idx) => {
                 const isSelf = item.from === logic.nativeLanguage;
+                const labels = getLocalizedLabels(logic.nativeLanguage);
                 return (
                   <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                     <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
-                      {isSelf ? "Yo dije:" : "Él dijo:"}
+                      {isSelf ? labels.self : labels.other}
                     </span>
                     <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
                   </div>
@@ -123,10 +124,11 @@ export function ConversacionMobile() {
             ) : (
               chronologicalHistory.map((item, idx) => {
                 const isSelf = item.from === logic.targetLanguage;
+                const labels = getLocalizedLabels(logic.targetLanguage);
                 return (
                   <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                     <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
-                      {isSelf ? "Yo dije:" : "La persona dijo:"}
+                      {isSelf ? labels.self : labels.other}
                     </span>
                     <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
                   </div>
@@ -254,25 +256,25 @@ export function ConversacionMobile() {
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="bg-zinc-950/95 backdrop-blur-3xl border-white/10 rounded-t-[2.5rem] pb-8 px-6 h-[70vh] flex flex-col">
-            <div className="mt-4 shrink-0 flex flex-row items-start justify-between">
-              <SheetHeader>
+            <SheetHeader className="mt-4 shrink-0">
+              <div className="flex items-center justify-between">
                 <SheetTitle className="text-white text-left font-headline flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-primary" />
-                  Historial de Conversación
+                  Historial
                 </SheetTitle>
-                <SheetDescription className="text-white/40 text-left">Registro de todos los mensajes traducidos.</SheetDescription>
-              </SheetHeader>
-              {logic.history.length > 0 && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  className="h-8 text-[10px] uppercase tracking-wider font-bold ml-4"
-                  onClick={() => setIsFinishDialogOpen(true)}
-                >
-                  Finalizar
-                </Button>
-              )}
-            </div>
+                {logic.history.length > 0 && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="h-8 text-[10px] uppercase tracking-wider font-bold ml-2 rounded-full px-4"
+                    onClick={() => setIsFinishDialogOpen(true)}
+                  >
+                    Finalizar
+                  </Button>
+                )}
+              </div>
+              <SheetDescription className="text-white/40 text-left">Registro de todos los mensajes traducidos.</SheetDescription>
+            </SheetHeader>
             
             <ScrollArea className="flex-1 mt-6 border border-white/5 rounded-2xl bg-white/[0.02] p-4">
               {logic.history.length === 0 ? (

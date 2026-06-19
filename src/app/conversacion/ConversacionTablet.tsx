@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useConversacion } from './use-conversacion';
+import { useConversacion, getLocalizedLabels } from './use-conversacion';
 import { 
-  Mic, MicOff, Camera, CameraOff, User, Users, RotateCw, Sparkles, Settings2, Sparkle
+  Mic, MicOff, Camera, CameraOff, User, Users, RotateCw, Sparkles, Settings2, Sparkle, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -44,13 +44,24 @@ export function ConversacionTablet() {
             Conectar
           </Button>
           {logic.history.length > 0 && (
-            <Button 
-              variant="destructive" 
-              className="h-12 px-6 rounded-2xl transition-all duration-500 font-headline uppercase text-[10px] tracking-widest font-bold"
-              onClick={() => setIsFinishDialogOpen(true)}
-            >
-              Finalizar Conversación
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="destructive" 
+                className="h-12 px-6 rounded-2xl transition-all duration-500 font-headline uppercase text-[10px] tracking-widest font-bold"
+                onClick={() => setIsFinishDialogOpen(true)}
+              >
+                Finalizar Conversación
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => logic.clearConversation()}
+                className="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                title="Borrar historial"
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+            </div>
           )}
           <Button
             onClick={() => setIsTableModeActive(!isTableModeActive)}
@@ -85,10 +96,11 @@ export function ConversacionTablet() {
             ) : (
               chronologicalHistory.map((item, idx) => {
                 const isSelf = item.from === logic.nativeLanguage;
+                const labels = getLocalizedLabels(logic.nativeLanguage);
                 return (
                   <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                     <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
-                      {isSelf ? "Yo dije:" : "Él dijo:"}
+                      {isSelf ? labels.self : labels.other}
                     </span>
                     <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                   </div>
@@ -126,10 +138,11 @@ export function ConversacionTablet() {
             ) : (
               chronologicalHistory.map((item, idx) => {
                 const isSelf = item.from === logic.targetLanguage;
+                const labels = getLocalizedLabels(logic.targetLanguage);
                 return (
                   <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                     <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
-                      {isSelf ? "Yo dije:" : "La persona dijo:"}
+                      {isSelf ? labels.self : labels.other}
                     </span>
                     <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                   </div>
@@ -216,39 +229,50 @@ export function ConversacionTablet() {
           <Button variant="ghost" className="h-16 w-16 rounded-full border border-white/10 bg-white/5 text-white/40 hover:bg-white/10 hover:text-white">
             <Settings2 className="w-6 h-6" />
           </Button>
+
+          {logic.history.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setIsFinishDialogOpen(true)}
+              className="h-16 px-6 rounded-full font-headline font-bold uppercase tracking-wider text-xs"
+            >
+              Finalizar
+            </Button>
+          )}
         </div>
       </div>
 
       <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-zinc-950 border-white/10 text-white w-[90vw] rounded-[2rem]">
+        <DialogContent className="sm:max-w-md bg-zinc-950 border-white/10 text-white rounded-[2rem] p-8">
           <DialogHeader>
-            <DialogTitle>Finalizar Conversación</DialogTitle>
-            <DialogDescription className="text-white/50">
-              Ingresa un nombre para guardar esta conversación.
+            <DialogTitle className="text-2xl font-headline">Finalizar Conversación</DialogTitle>
+            <DialogDescription className="text-white/50 text-base">
+              Ingresa un nombre para guardar esta sesión antes de limpiar la pantalla.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex items-center space-x-2 py-4">
+          <div className="py-6">
             <Input
-              placeholder="Ej: Reunión con cliente..."
+              id="name"
+              placeholder="Nombre de la sesión..."
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/30 h-14 rounded-xl text-lg px-6"
             />
           </div>
-          <DialogFooter className="flex-row gap-2 sm:justify-end">
+          <DialogFooter className="flex gap-4">
             <Button
               type="button"
               variant="ghost"
-              className="flex-1 text-white/70 hover:text-white hover:bg-white/10"
+              className="h-14 px-8 rounded-xl text-white/70 hover:text-white hover:bg-white/10 text-lg"
               onClick={() => setIsFinishDialogOpen(false)}
             >
               Cancelar
             </Button>
             <Button
               type="button"
-              className="flex-1 bg-primary hover:bg-primary/90 text-white"
+              className="h-14 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white text-lg font-bold"
               onClick={() => {
-                logic.saveAndClearConversation(sessionName || 'Conversación sin nombre');
+                logic.saveAndClearConversation(sessionName || 'Conversación');
                 setIsFinishDialogOpen(false);
                 setSessionName('');
               }}

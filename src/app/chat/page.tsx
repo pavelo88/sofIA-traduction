@@ -26,7 +26,7 @@ export default function KittenChat() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
-  const { nativeLanguage, targetLanguage } = useStore();
+  const { nativeLanguage, targetLanguage, conversationHistory } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -130,7 +130,12 @@ export default function KittenChat() {
   };
 
   const handleSummary = () => {
-    handleSend("Por favor genera un resumen pedagógico de nuestra charla de hoy, destacando las palabras clave aprendidas y los errores comunes que debo mejorar. Usa un tono animado y amigable, como un tutor.", true);
+    const historyText = conversationHistory.map(m => `[${m.from}] ${m.original} -> [${m.to}] ${m.translated}`).join('\n');
+    const prompt = historyText.length > 0 
+      ? `Por favor analiza las siguientes conversaciones reales que tuve hoy como traductor y genera un resumen pedagógico destacando palabras clave, vocabulario útil y posibles áreas de mejora. Usa un tono animado y amigable, como un lindo gatito tutor.\n\nConversaciones:\n${historyText}`
+      : `Por favor genera un resumen pedagógico de nuestra charla de hoy en este chat, destacando las palabras clave aprendidas y los errores comunes que debo mejorar. Usa un tono animado y amigable.`;
+      
+    handleSend(prompt, true);
   };
 
   return (
@@ -145,8 +150,8 @@ export default function KittenChat() {
         <Button 
           variant="outline" 
           onClick={handleSummary}
-          disabled={isLoading || messages.length < 3}
-          className="rounded-full border-primary/30 text-primary hover:bg-primary/10"
+          disabled={isLoading || (messages.length < 3 && conversationHistory.length === 0)}
+          className="rounded-full border-primary/30 text-primary hover:bg-primary/10 px-6 font-bold tracking-wider uppercase text-xs"
         >
           <Star className="w-4 h-4 mr-2" />
           Resumen del Día

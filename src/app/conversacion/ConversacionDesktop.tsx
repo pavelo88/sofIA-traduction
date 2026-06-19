@@ -1,9 +1,9 @@
 'use client';
 
-import { useConversacion } from './use-conversacion';
+import { useConversacion, getLocalizedLabels } from './use-conversacion';
 import { 
   Mic, MicOff, Camera, CameraOff, History, Sparkles, User, Users,
-  Wifi, ArrowUpDown, Volume2
+  Wifi, ArrowUpDown, Volume2, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -114,10 +114,11 @@ export function ConversacionDesktop() {
               ) : (
                 chronologicalHistory.map((item, idx) => {
                   const isSelf = item.from === logic.nativeLanguage;
+                  const labels = getLocalizedLabels(logic.nativeLanguage);
                   return (
                     <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                       <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
-                        {isSelf ? "Yo dije:" : "Él dijo:"}
+                        {isSelf ? labels.self : labels.other}
                       </span>
                       <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                     </div>
@@ -203,10 +204,11 @@ export function ConversacionDesktop() {
               ) : (
                 chronologicalHistory.map((item, idx) => {
                   const isSelf = item.from === logic.targetLanguage;
+                  const labels = getLocalizedLabels(logic.targetLanguage);
                   return (
                     <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
                       <span className={cn("font-bold mr-2 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
-                        {isSelf ? "Yo dije:" : "La persona dijo:"}
+                        {isSelf ? labels.self : labels.other}
                       </span>
                       <span className="font-medium text-lg leading-relaxed">{isSelf ? item.original : item.translated}</span>
                     </div>
@@ -338,8 +340,21 @@ export function ConversacionDesktop() {
         <div className="flex-1 glass-panel rounded-[2.5rem] border-white/10 p-6 flex flex-col gap-6 overflow-hidden min-h-0">
           <div className="flex items-center justify-between">
             <h4 className="text-[10px] font-headline uppercase tracking-[0.2em] text-white/50 font-bold">Historial de Turnos</h4>
-            <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-              <History className="w-4 h-4 text-white/70" />
+            <div className="flex items-center gap-2">
+              {logic.history.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => logic.clearConversation()}
+                  className="w-8 h-8 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  title="Borrar historial"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+              <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                <History className="w-4 h-4 text-white/70" />
+              </div>
             </div>
           </div>
 

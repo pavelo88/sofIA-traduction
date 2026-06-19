@@ -15,6 +15,22 @@ export type ChatItem = {
   timestamp: Date;
 };
 
+export function getLocalizedLabels(language: string) {
+  const labels: Record<string, { self: string; other: string }> = {
+    "Español": { self: "Yo dije:", other: "La persona dijo:" },
+    "Inglés": { self: "I said:", other: "The other person said:" },
+    "Francés": { self: "J'ai dit:", other: "L'autre personne a dit:" },
+    "Alemán": { self: "Ich sagte:", other: "Die andere Person sagte:" },
+    "Portugués": { self: "Eu disse:", other: "A outra pessoa disse:" },
+    "Italiano": { self: "Ho detto:", other: "L'altra persona ha detto:" },
+    "Chino": { self: "我说：", other: "对方说：" },
+    "Japonés": { self: "私は言った:", other: "相手は言った:" },
+    "Árabe": { self: "قلت:", other: "قال الشخص الآخر:" },
+    "Ruso": { self: "Я сказал(а):", other: "Другой человек сказал:" }
+  };
+  return labels[language] || labels["Inglés"];
+}
+
 /**
  * Traduce localmente usando la API de Traducción integrada de Chrome (window.translation)
  * o el modelo local Gemini Nano (window.ai.languageModel).
@@ -331,6 +347,8 @@ export function useConversacion() {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
+      // Flag para auto-reinicio si muere inesperadamente
+      const isExpectedToRecord = true;
 
       recognition.onstart = () => {
         setIsRecording(true);
@@ -350,15 +368,24 @@ export function useConversacion() {
       };
 
       recognition.onend = () => {
+        if (isRecordingRef.current) {
+          // El navegador detuvo el micro antes de tiempo
+          console.log("[SoftIA Voice] Micro detenido por el navegador. Reiniciando...");
+          setTimeout(() => startListening(), 200);
+          return;
+        }
         setIsRecording(false);
         stopAudioAnalyzer();
       };
 
       recognition.onerror = (e: any) => {
-        setIsRecording(false);
-        stopAudioAnalyzer();
-        if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        if (e.error === 'no-speech' || e.error === 'aborted') {
+          console.log('[SoftIA Voice] Error de silencio/aborto, intentando continuar...');
+        } else {
           console.warn('[SoftIA Voice] Error de reconocimiento:', e.error);
+          toast({ title: "Aviso de Micrófono", description: `El motor reportó: ${e.error}. Por favor, vuelve a intentarlo.` });
+          setIsRecording(false);
+          stopAudioAnalyzer();
         }
       };
 
@@ -486,6 +513,7 @@ export function useConversacion() {
    */
   const toggleSession = useCallback(() => {
     if (isRecordingRef.current) {
+      isRecordingRef.current = false; // Forzar estado para evitar auto-reinicio
       // 1. Apagar micrófono
       if (recognitionRef.current) {
         try {
@@ -516,6 +544,7 @@ export function useConversacion() {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+    isRecordingRef.current = false; // Forzar estado para evitar auto-reinicio
     if (recognitionRef.current) {
       try {
         recognitionRef.current.abort();
