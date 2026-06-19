@@ -19,9 +19,22 @@
       "type": "object",
       "properties": {
         "accuracy_percentage": { "type": "number" },
-        "user_email": { "type": "string" }
+        "user_email": { "type": "string" },
+        "last_grade": { "type": "string" },
+        "updated_at": { "type": "string" }
       },
       "required": ["accuracy_percentage", "user_email"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Configuración y perfil extendido del usuario.",
+      "type": "object",
+      "properties": {
+        "nativeLanguage": { "type": "string" },
+        "targetLanguage": { "type": "string" },
+        "aiEngineMode": { "type": "string" },
+        "updated_at": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -35,6 +48,10 @@
     "/user_progress/{userId}": {
       "schema": "UserProgress",
       "description": "Información de progreso y nivel del usuario."
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Datos de configuración de perfil de usuario."
     }
   }
 }

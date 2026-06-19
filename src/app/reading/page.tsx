@@ -5,10 +5,12 @@ import { useState } from 'react';
 import { evaluatePronunciation, type PronunciationEvalOutput } from '@/ai/flows/pronunciation-eval';
 import { Mic, RefreshCcw, Activity, BookOpen, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
  * @summary ReadingTutor: Sistema de evaluación de pronunciación fonética.
@@ -22,6 +24,7 @@ export default function ReadingTutor() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evalResult, setEvalResult] = useState<PronunciationEvalOutput | null>(null);
 
+  const { user } = useUser();
   const db = useFirestore();
 
   const startSpeechRecognition = () => {
@@ -64,18 +67,30 @@ export default function ReadingTutor() {
   };
 
   const handleEvaluation = async () => {
-    if (!transcription || isEvaluating) return;
+    if (!transcription || isEvaluating || !user?.uid) return;
     setIsEvaluating(true);
     try {
       const result = await evaluatePronunciation({ targetSentence, transcription });
       setEvalResult(result);
 
-      // Persistencia de progreso en modo asíncrono
-      setDoc(doc(db, 'user_progress', 'demo-user'), {
+      // Persistencia de progreso con UID real
+      const progressRef = doc(db, 'user_progress', user.uid);
+      const progressData = {
         accuracy_percentage: result.accuracy,
         last_grade: result.grade,
-        updated_at: new Date().toISOString()
-      }, { merge: true });
+        updated_at: new Date().toISOString(),
+        user_email: user.email || 'guest@softia.com'
+      };
+
+      setDoc(progressRef, progressData, { merge: true })
+        .catch(async () => {
+          const permissionError = new FirestorePermissionError({
+            path: progressRef.path,
+            operation: 'write',
+            requestResourceData: progressData
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
       toast({ 
         title: `Sesión Finalizada: ${result.grade}`, 
@@ -90,7 +105,6 @@ export default function ReadingTutor() {
 
   return (
     <main className="relative min-h-screen bg-background overflow-hidden flex flex-col items-center justify-center p-6">
-      {/* Ambiente Espacial Minimalista */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(161,98,247,0.08),transparent_70%)]" />
       
       <div className="relative z-10 w-full max-w-3xl animate-in zoom-in-95 duration-1000">

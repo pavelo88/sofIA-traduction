@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useStore } from '@/lib/store';
 import { aiTutorConversation } from '@/ai/flows/ai-tutor-conversation';
 import { 
@@ -17,20 +17,29 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useUser } from '@/firebase';
 import { doc, collection, addDoc } from 'firebase/firestore';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
  * Pantalla Principal: Dashboard de SoftIA (v3.2.1 - Estabilizado)
  */
 export default function Home() {
   const { learningProgress, nativeLanguage, targetLanguage } = useStore();
+  const { user } = useUser();
   const db = useFirestore();
 
-  const { data: progressData } = useDoc(doc(db, 'user_progress', 'demo-user'));
+  // Usamos el UID real del usuario para evitar errores de permisos
+  const progressRef = useMemo(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, 'user_progress', user.uid);
+  }, [db, user?.uid]);
+
+  const { data: progressData } = useDoc(progressRef);
   const currentLevel = progressData?.accuracy_percentage ?? learningProgress;
 
   const [input, setInput] = useState('');
@@ -43,7 +52,6 @@ export default function Home() {
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
   
-  // Ref para el input para evitar recrear callbacks constantemente
   const inputRef = useRef(input);
   useEffect(() => {
     inputRef.current = input;
@@ -68,14 +76,24 @@ export default function Home() {
     if (!textToSubmit) setInput('');
 
     try {
-      addDoc(collection(db, 'chat_history'), {
+      const msgData = {
         role: 'user',
         content: finalInput,
         timestamp: new Date().toISOString(),
-        user_email: 'demo@softia.com',
+        user_email: user?.email || 'guest@softia.com',
         nativeLanguage,
         targetLanguage
-      });
+      };
+
+      addDoc(collection(db, 'chat_history'), msgData)
+        .catch(async () => {
+          const permissionError = new FirestorePermissionError({
+            path: 'chat_history',
+            operation: 'create',
+            requestResourceData: msgData
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
       const result = await aiTutorConversation({
         message: finalInput,
@@ -87,12 +105,22 @@ export default function Home() {
       setKittenResponse(result.response);
       speak(result.response);
 
-      addDoc(collection(db, 'chat_history'), {
+      const responseData = {
         role: 'model',
         content: result.response,
         timestamp: new Date().toISOString(),
-        user_email: 'demo@softia.com'
-      });
+        user_email: user?.email || 'guest@softia.com'
+      };
+
+      addDoc(collection(db, 'chat_history'), responseData)
+        .catch(async () => {
+          const permissionError = new FirestorePermissionError({
+            path: 'chat_history',
+            operation: 'create',
+            requestResourceData: responseData
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
 
     } catch (error: any) {
       console.error("Error en chat de Kitten:", error);
@@ -103,7 +131,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [db, isLoading, nativeLanguage, targetLanguage]);
+  }, [db, isLoading, nativeLanguage, targetLanguage, user?.email]);
 
   useEffect(() => {
     setIsMounted(true);
