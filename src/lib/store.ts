@@ -5,7 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 /**
  * @interface AppState
  * Estado global con persistencia híbrida (Firebase/LocalStorage).
- * Refactorización v5.0: Gestión de créditos e infraestructura de IA.
+ * Refactorización v6.0: Gestión de créditos, infraestructura de IA y control de UI.
  */
 
 export interface ConversationItem {
@@ -32,9 +32,10 @@ interface AppState {
   } | null;
   conversationHistory: ConversationItem[];
   
-  // Nuevos estados para SaaS Premium
-  aiEngineMode: 'cloud' | 'local';
+  // Infraestructura de IA y SaaS
+  aiEngineMode: 'cloud' | 'device';
   userCredits: number;
+  isProfileOpen: boolean;
   
   // Setters
   setThermalTemperature: (temp: number) => void;
@@ -45,8 +46,9 @@ interface AppState {
   setUserVoiceGender: (gender: 'masculino' | 'femenino') => void;
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
   addConversationItem: (item: ConversationItem) => void;
-  setAiEngineMode: (mode: 'cloud' | 'local') => void;
+  setAiEngineMode: (mode: 'cloud' | 'device') => void;
   addCredits: (amount: number) => void;
+  setIsProfileOpen: (open: boolean) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -65,6 +67,7 @@ export const useStore = create<AppState>()(
       conversationHistory: [],
       aiEngineMode: 'cloud',
       userCredits: 25,
+      isProfileOpen: false,
 
       setThermalTemperature: (temp) => set((state) => {
         const isThrottled = temp > 45;
@@ -93,6 +96,7 @@ export const useStore = create<AppState>()(
       })),
       setAiEngineMode: (mode) => set({ aiEngineMode: mode }),
       addCredits: (amount) => set((state) => ({ userCredits: state.userCredits + amount })),
+      setIsProfileOpen: (open) => set({ isProfileOpen: open }),
     }),
     {
       name: 'softia-core-storage',

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -15,15 +16,18 @@ export type ChatItem = {
 
 /**
  * @summary Hook de lógica de negocio para Conversación Dual (Audio-First).
- * Implementa procesamiento directo de voz y síntesis dinámica por género.
- * Refactorización v6.0: Ciclo de vida de hardware no bloqueante y limpieza estricta.
+ * Implementa procesamiento directo de voz y ruteo inteligente de IA (Cloud vs Device).
  */
 export function useConversacion() {
   const { 
     nativeLanguage, 
     targetLanguage, 
     userVoiceGender, 
-    partnerVoiceGender 
+    partnerVoiceGender,
+    aiEngineMode,
+    userCredits,
+    addCredits,
+    setIsProfileOpen
   } = useStore();
   
   const [isNativeTurn, setIsNativeTurn] = useState(true);
@@ -43,9 +47,6 @@ export function useConversacion() {
     "Árabe": "ar-SA", "Ruso": "ru-RU"
   };
 
-  /**
-   * Síntesis de Voz Inteligente (TTS)
-   */
   const speakText = useCallback((text: string, langName: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
     
@@ -83,25 +84,58 @@ export function useConversacion() {
     const toLang = isNativeTurn ? targetLanguage : nativeLanguage;
 
     try {
-      const result = await translateConversation({
-        text,
-        fromLanguage: fromLang,
-        toLanguage: toLang
-      });
+      let translatedText = "";
+
+      // Ruteo Dinámico de Inteligencia
+      if (aiEngineMode === 'cloud') {
+        if (userCredits <= 0) {
+          setIsProcessing(false);
+          setIsProfileOpen(true);
+          toast({
+            title: "Créditos Agotados",
+            description: "No tienes créditos para usar la IA en la nube. Recarga o cambia a modo Dispositivo.",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        addCredits(-1);
+        const result = await translateConversation({
+          text,
+          fromLanguage: fromLang,
+          toLanguage: toLang
+        });
+        translatedText = result.translatedText;
+      } else {
+        // Modo Dispositivo: Intento de uso de window.ai (Gemini Nano)
+        try {
+          // @ts-ignore - API experimental del navegador
+          if (window.ai && window.ai.languageModel) {
+            // @ts-ignore
+            const session = await window.ai.languageModel.create();
+            translatedText = await session.prompt(`Translate this text from ${fromLang} to ${toLang}. Output only the translation: ${text}`);
+          } else {
+            // Fallback de demostración si window.ai no está disponible
+            translatedText = `[Device-Mode Fallback] Traduciendo de ${fromLang} a ${toLang}: ${text}`;
+          }
+        } catch (localError) {
+          translatedText = `[Offline Fallback] ${text}`;
+        }
+      }
 
       const newItem: ChatItem = {
         original: text,
-        translated: result.translatedText,
+        translated: translatedText,
         from: fromLang,
         to: toLang,
         timestamp: new Date()
       };
 
       setHistory(prev => [newItem, ...prev]);
-      speakText(result.translatedText, toLang);
+      speakText(translatedText, toLang);
     } catch (error) {
-      console.error("[SoftIA Audio Engine] Fallo en la matriz de traducción:", error);
-      toast({ title: "Falla de Traducción", description: "Se perdió el enlace espacial con el motor de voz.", variant: "destructive" });
+      console.error("[SoftIA Engine] Fallo en procesamiento:", error);
+      toast({ title: "Falla de Traducción", description: "Error en la matriz de inteligencia.", variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
@@ -131,7 +165,7 @@ export function useConversacion() {
     return () => {
       if (recognitionRef.current) recognitionRef.current.abort();
     };
-  }, [nativeLanguage, targetLanguage, isNativeTurn]);
+  }, [nativeLanguage, targetLanguage, isNativeTurn, aiEngineMode, userCredits]);
 
   useEffect(() => {
     if (isAutoRestarting.current && !isRecording && !isProcessing) {
@@ -168,7 +202,6 @@ export function useConversacion() {
       if (recognitionRef.current) {
         recognitionRef.current.lang = langMap[currentLang] || 'en-US';
         try { recognitionRef.current.start(); } catch (e) {
-          console.warn("[SoftIA] Error al iniciar reconocimiento:", e);
           setIsRecording(false);
         }
       }
