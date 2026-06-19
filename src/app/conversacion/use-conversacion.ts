@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -17,7 +16,7 @@ export type ChatItem = {
 /**
  * @summary Hook de lógica de negocio para Conversación Dual (Audio-First).
  * Implementa procesamiento directo de voz y síntesis dinámica por género.
- * Optimización de Hardware v5.0: Gestión estricta de ciclos de vida de cámara.
+ * Refactorización v6.0: Ciclo de vida de hardware no bloqueante y limpieza estricta.
  */
 export function useConversacion() {
   const { 
@@ -38,7 +37,6 @@ export function useConversacion() {
   const transcriptBuffer = useRef('');
   const isAutoRestarting = useRef(false);
 
-  // Mapeo de códigos ISO para Speech API
   const langMap: Record<string, string> = {
     "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
     "Portugués": "pt-PT", "Italiano": "it-IT", "Chino": "zh-CN", "Japonés": "ja-JP",
@@ -77,9 +75,6 @@ export function useConversacion() {
     window.speechSynthesis.speak(utterance);
   }, [isNativeTurn, userVoiceGender, partnerVoiceGender]);
 
-  /**
-   * Procesamiento Directo de Traducción
-   */
   const handleTranslation = async (text: string) => {
     if (!text.trim()) return;
 
@@ -106,19 +101,12 @@ export function useConversacion() {
       speakText(result.translatedText, toLang);
     } catch (error) {
       console.error("[SoftIA Audio Engine] Fallo en la matriz de traducción:", error);
-      toast({ 
-        title: "Falla de Traducción", 
-        description: "Se perdió el enlace espacial con el motor de voz.", 
-        variant: "destructive" 
-      });
+      toast({ title: "Falla de Traducción", description: "Se perdió el enlace espacial con el motor de voz.", variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  /**
-   * Inicialización del Reconocimiento de Voz
-   */
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
@@ -127,16 +115,8 @@ export function useConversacion() {
       recognition.continuous = false;
       recognition.interimResults = false;
       
-      recognition.onstart = () => {
-        setIsRecording(true);
-        transcriptBuffer.current = '';
-      };
-
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        transcriptBuffer.current = transcript;
-      };
-
+      recognition.onstart = () => setIsRecording(true);
+      recognition.onresult = (event: any) => { transcriptBuffer.current = event.results[0][0].transcript; };
       recognition.onend = () => {
         setIsRecording(false);
         if (transcriptBuffer.current) {
@@ -144,15 +124,15 @@ export function useConversacion() {
           transcriptBuffer.current = '';
         }
       };
-
       recognition.onerror = () => setIsRecording(false);
       recognitionRef.current = recognition;
     }
+
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+    };
   }, [nativeLanguage, targetLanguage, isNativeTurn]);
 
-  /**
-   * Orquestador de Turnos Automático
-   */
   useEffect(() => {
     if (isAutoRestarting.current && !isRecording && !isProcessing) {
       isAutoRestarting.current = false;
@@ -164,34 +144,17 @@ export function useConversacion() {
     }
   }, [isNativeTurn, isRecording, isProcessing, nativeLanguage, targetLanguage]);
 
-  /**
-   * Gestión Imperativa de Hardware (Cámara)
-   * Prevención de sobrecalentamiento y fugas de memoria.
-   */
   useEffect(() => {
     let activeStream: MediaStream | null = null;
-
     if (isCameraActive) {
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(stream => {
-          activeStream = stream;
-          streamRef.current = stream;
-          console.log(`[SoftIA Hardware] Cámara activada: ${stream.id}`);
-        }).catch((err) => {
-          console.error("[SoftIA Hardware] Error al activar cámara:", err);
-          setIsCameraActive(false);
-          toast({ title: "Hardware Error", description: "No se pudo acceder a la cámara visual.", variant: "destructive" });
-        });
+        .then(stream => { activeStream = stream; streamRef.current = stream; })
+        .catch(() => setIsCameraActive(false));
     }
-
-    // CICLO DE APAGADO ESTRICTO
     return () => {
       const streamToCleanup = activeStream || streamRef.current;
       if (streamToCleanup) {
-        streamToCleanup.getTracks().forEach(track => {
-          track.stop();
-          console.log(`[SoftIA Hardware] Track ${track.kind} destruido y apagado a nivel de CPU: ${track.label}`);
-        });
+        streamToCleanup.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
     };
@@ -204,25 +167,17 @@ export function useConversacion() {
       const currentLang = isNativeTurn ? nativeLanguage : targetLanguage;
       if (recognitionRef.current) {
         recognitionRef.current.lang = langMap[currentLang] || 'en-US';
-        try { 
-          recognitionRef.current.start(); 
-        } catch (e) {}
+        try { recognitionRef.current.start(); } catch (e) {
+          console.warn("[SoftIA] Error al iniciar reconocimiento:", e);
+          setIsRecording(false);
+        }
       }
     }
   };
 
   return {
-    isNativeTurn, 
-    isRecording, 
-    isProcessing, 
-    isCameraActive,
-    setIsCameraActive, 
-    history, 
-    toggleSession, 
-    streamRef,
-    nativeLanguage, 
-    targetLanguage, 
-    userVoiceGender, 
-    partnerVoiceGender
+    isNativeTurn, isRecording, isProcessing, isCameraActive, setIsCameraActive, 
+    history, toggleSession, streamRef, nativeLanguage, targetLanguage, 
+    userVoiceGender, partnerVoiceGender
   };
 }
