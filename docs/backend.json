@@ -9,9 +9,10 @@
         "role": { "type": "string", "enum": ["user", "model"] },
         "content": { "type": "string" },
         "timestamp": { "type": "string" },
-        "user_email": { "type": "string" }
+        "user_email": { "type": "string" },
+        "user_id": { "type": "string" }
       },
-      "required": ["role", "content", "timestamp", "user_email"]
+      "required": ["role", "content", "timestamp", "user_email", "user_id"]
     },
     "UserProgress": {
       "title": "UserProgress",
@@ -41,9 +42,9 @@
     "providers": ["google.com"]
   },
   "firestore": {
-    "/chat_history/{messageId}": {
+    "/users/{userId}/chat_history/{messageId}": {
       "schema": "ChatMessage",
-      "description": "Colección de historial de chat para memoria de la IA."
+      "description": "Historial de chat del usuario para memoria de la IA."
     },
     "/user_progress/{userId}": {
       "schema": "UserProgress",

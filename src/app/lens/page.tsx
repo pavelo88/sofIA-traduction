@@ -4,12 +4,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { arTextTranslation, type ARTextTranslationOutput } from '@/ai/flows/ar-text-translation';
 import { Sparkles, Radio, MousePointer2, Info, Camera, ScanText } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 
 /**
  * @summary ARLens: Escáner espacial inmersivo de pantalla completa (Cinematic Experience).
- * Refactorización v7.0: Video absolute inset-0 y HUD flotante con Glassmorphism 3.0.
+ * Refactorización v7.1: Sincronización con subcolección de historial por usuario.
  */
 export default function ARLens() {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -20,6 +20,7 @@ export default function ARLens() {
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { user } = useUser();
   const db = useFirestore();
 
   useEffect(() => {
@@ -80,15 +81,16 @@ export default function ARLens() {
 
       setDetections(result.detections);
       
-      if (result.detections.length > 0) {
+      if (result.detections.length > 0 && user?.uid) {
         const first = result.detections[0];
         setLatestDetection({ original: first.originalText, translated: first.translatedText });
 
-        addDoc(collection(db, 'chat_history'), {
+        addDoc(collection(db, 'users', user.uid, 'chat_history'), {
           role: 'model',
           content: `Traducción AR: "${first.originalText}" -> "${first.translatedText}"`,
           timestamp: new Date().toISOString(),
-          user_email: 'demo@softia.com',
+          user_email: user.email || 'guest@softia.com',
+          user_id: user.uid,
           metadata: { type: 'ar_tap_scan' }
         });
       }
@@ -113,7 +115,6 @@ export default function ARLens() {
       className="fixed inset-0 bg-black overflow-hidden cursor-crosshair group"
       onClick={handleViewportClick}
     >
-      {/* FEED DE VIDEO INMERSIVO (PANTALLA COMPLETA) */}
       <div className="absolute inset-0 z-0">
         {!cameraError ? (
           <video 
@@ -129,13 +130,11 @@ export default function ARLens() {
             <p className="font-headline tracking-widest uppercase text-[10px]">{cameraError}</p>
           </div>
         )}
-        {/* Capa de atmósfera cinemática */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/40 pointer-events-none z-[1]" />
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* RIPPLE DE TOQUE AR */}
       {tapRipple && (
         <div className="absolute z-50 pointer-events-none" style={{ left: `${tapRipple.x}%`, top: `${tapRipple.y}%` }}>
           <div className="w-24 h-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary bg-primary/10 animate-ping" />
@@ -143,7 +142,6 @@ export default function ARLens() {
         </div>
       )}
 
-      {/* HUD DE DETECCIONES ESPACIALES (HUD FLOTANTE) */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         {detections.map((det, index) => (
           <div key={`${index}`} className="absolute animate-in fade-in zoom-in duration-700" style={{ left: `${det.x}%`, top: `${det.y}%` }}>
@@ -155,7 +153,6 @@ export default function ARLens() {
         ))}
       </div>
 
-      {/* TELEMETRÍA SUPERIOR */}
       <div className="absolute top-10 left-10 right-10 z-30 flex justify-between items-start pointer-events-none">
         <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-6 py-2.5 rounded-full flex items-center gap-3">
           <MousePointer2 className="w-3.5 h-3.5 text-primary animate-bounce" />
@@ -168,7 +165,6 @@ export default function ARLens() {
         </div>
       </div>
 
-      {/* DASHBOARD FLOTANTE INFERIOR (GLASSMORPHISM 3.0) */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-xl pointer-events-none">
         <div className="bg-zinc-950/40 backdrop-blur-3xl border border-white/[0.08] rounded-[2.5rem] p-8 shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex flex-col items-center text-center transition-all duration-700 pointer-events-auto">
           {isProcessing ? (

@@ -26,14 +26,13 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
- * Pantalla Principal: Dashboard de SoftIA (v3.2.1 - Estabilizado)
+ * Pantalla Principal: Dashboard de SoftIA (v3.2.2 - Refactorizada con subcolecciones)
  */
 export default function Home() {
   const { learningProgress, nativeLanguage, targetLanguage } = useStore();
   const { user } = useUser();
   const db = useFirestore();
 
-  // Usamos el UID real del usuario para evitar errores de permisos
   const progressRef = useMemo(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'user_progress', user.uid);
@@ -69,7 +68,7 @@ export default function Home() {
 
   const handleKittenChat = useCallback(async (textToSubmit?: string) => {
     const finalInput = textToSubmit || inputRef.current;
-    if (!finalInput.trim() || isLoading) return;
+    if (!finalInput.trim() || isLoading || !user?.uid) return;
 
     setIsLoading(true);
     setApiErrorType(null);
@@ -77,18 +76,20 @@ export default function Home() {
 
     try {
       const msgData = {
-        role: 'user',
+        role: 'user' as const,
         content: finalInput,
         timestamp: new Date().toISOString(),
         user_email: user?.email || 'guest@softia.com',
+        user_id: user.uid,
         nativeLanguage,
         targetLanguage
       };
 
-      addDoc(collection(db, 'chat_history'), msgData)
+      // Guardado en subcolección de usuario para mayor seguridad
+      addDoc(collection(db, 'users', user.uid, 'chat_history'), msgData)
         .catch(async () => {
           const permissionError = new FirestorePermissionError({
-            path: 'chat_history',
+            path: `users/${user.uid}/chat_history`,
             operation: 'create',
             requestResourceData: msgData
           });
@@ -106,16 +107,17 @@ export default function Home() {
       speak(result.response);
 
       const responseData = {
-        role: 'model',
+        role: 'model' as const,
         content: result.response,
         timestamp: new Date().toISOString(),
-        user_email: user?.email || 'guest@softia.com'
+        user_email: user?.email || 'guest@softia.com',
+        user_id: user.uid
       };
 
-      addDoc(collection(db, 'chat_history'), responseData)
+      addDoc(collection(db, 'users', user.uid, 'chat_history'), responseData)
         .catch(async () => {
           const permissionError = new FirestorePermissionError({
-            path: 'chat_history',
+            path: `users/${user.uid}/chat_history`,
             operation: 'create',
             requestResourceData: responseData
           });
@@ -131,7 +133,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [db, isLoading, nativeLanguage, targetLanguage, user?.email]);
+  }, [db, isLoading, nativeLanguage, targetLanguage, user?.email, user?.uid]);
 
   useEffect(() => {
     setIsMounted(true);
