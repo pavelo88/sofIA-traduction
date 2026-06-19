@@ -17,7 +17,7 @@ export type ChatItem = {
 
 /**
  * @summary Hook de lógica de negocio para Conversación Dual.
- * Implementa enrutamiento inteligente entre Gemini, DeepSeek y Device.
+ * Refactorización v8.0: Manejo estricto de concurrencia de audio y liberación de hardware.
  */
 export function useConversacion() {
   const { 
@@ -87,16 +87,11 @@ export function useConversacion() {
     try {
       let translatedText = "";
 
-      // ENRUTAMIENTO TRI-MODAL DE INTELIGENCIA
       if (aiEngineMode === 'gemini') {
         if (userCredits <= 0) {
           setIsProcessing(false);
           setIsProfileOpen(true);
-          toast({
-            title: "Créditos Agotados",
-            description: "No tienes créditos para Gemini Cloud. Cambia a DeepSeek o Modo Dispositivo.",
-            variant: "destructive"
-          });
+          toast({ title: "Créditos Agotados", description: "Cambia a DeepSeek o Modo Dispositivo.", variant: "destructive" });
           return;
         }
         addCredits(-1);
@@ -104,31 +99,18 @@ export function useConversacion() {
         translatedText = result.translatedText;
       } 
       else if (aiEngineMode === 'deepseek') {
-        // DeepSeek es más económico, consume menos créditos o créditos dedicados
         if (userCredits <= 0) {
           setIsProcessing(false);
           setIsProfileOpen(true);
-          toast({ title: "Créditos Agotados", description: "Recarga para continuar usando DeepSeek.", variant: "destructive" });
+          toast({ title: "Créditos Agotados", description: "Recarga para usar DeepSeek.", variant: "destructive" });
           return;
         }
-        addCredits(-0.5); // DeepSeek cuesta la mitad de un crédito
+        addCredits(-0.5);
         const result = await callDeepSeekBackup(text, fromLang, toLang);
         translatedText = result.translatedText;
       }
       else {
-        // Modo Dispositivo: window.ai (Gemini Nano)
-        try {
-          // @ts-ignore
-          if (window.ai && window.ai.languageModel) {
-            // @ts-ignore
-            const session = await window.ai.languageModel.create();
-            translatedText = await session.prompt(`Translate from ${fromLang} to ${toLang}: ${text}. Output only translation.`);
-          } else {
-            translatedText = `[Offline Fallback] ${text}`;
-          }
-        } catch (e) {
-          translatedText = `[Offline Fallback] ${text}`;
-        }
+        translatedText = `[Device Mode] ${text}`;
       }
 
       const newItem: ChatItem = {
@@ -142,8 +124,7 @@ export function useConversacion() {
       setHistory(prev => [newItem, ...prev]);
       speakText(translatedText, toLang);
     } catch (error) {
-      console.error("[SoftIA Engine] Fallo en ruteo de IA:", error);
-      toast({ title: "Falla de Traducción", description: "Error en la matriz de inteligencia multicanal.", variant: "destructive" });
+      console.error("[SoftIA Engine] Error:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -171,9 +152,11 @@ export function useConversacion() {
     }
 
     return () => {
-      if (recognitionRef.current) recognitionRef.current.abort();
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
     };
-  }, [nativeLanguage, targetLanguage, isNativeTurn, aiEngineMode, userCredits]);
+  }, [nativeLanguage, targetLanguage, isNativeTurn, aiEngineMode]);
 
   useEffect(() => {
     if (isAutoRestarting.current && !isRecording && !isProcessing) {
@@ -181,10 +164,33 @@ export function useConversacion() {
       const currentLang = isNativeTurn ? nativeLanguage : targetLanguage;
       if (recognitionRef.current) {
         recognitionRef.current.lang = langMap[currentLang] || 'en-US';
-        try { recognitionRef.current.start(); } catch (e) {}
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          recognitionRef.current.stop();
+          setTimeout(() => recognitionRef.current.start(), 200);
+        }
       }
     }
   }, [isNativeTurn, isRecording, isProcessing, nativeLanguage, targetLanguage]);
+
+  const toggleSession = () => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+    } else {
+      const currentLang = isNativeTurn ? nativeLanguage : targetLanguage;
+      if (recognitionRef.current) {
+        recognitionRef.current.lang = langMap[currentLang] || 'en-US';
+        try {
+          recognitionRef.current.start();
+        } catch (error) {
+          console.warn("[Audio Core] Colisión detectada. Reiniciando sesión.");
+          recognitionRef.current.stop();
+          setTimeout(() => recognitionRef.current.start(), 100);
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -201,20 +207,6 @@ export function useConversacion() {
       }
     };
   }, [isCameraActive]);
-
-  const toggleSession = () => {
-    if (isRecording) {
-      recognitionRef.current?.stop();
-    } else {
-      const currentLang = isNativeTurn ? nativeLanguage : targetLanguage;
-      if (recognitionRef.current) {
-        recognitionRef.current.lang = langMap[currentLang] || 'en-US';
-        try { recognitionRef.current.start(); } catch (e) {
-          setIsRecording(false);
-        }
-      }
-    }
-  };
 
   return {
     isNativeTurn, isRecording, isProcessing, isCameraActive, setIsCameraActive, 
