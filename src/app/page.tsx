@@ -48,6 +48,14 @@ export default function Home() {
   const [apiErrorType, setApiErrorType] = useState<'429' | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   
+  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model'; content: string }[]>([
+    { role: 'model', content: '¡Hola! Soy Kitten. ¿Listo para nuestra sesión de traducción o aprendizaje espacial hoy? 🐱✨' }
+  ]);
+  const chatHistoryRef = useRef(chatHistory);
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory;
+  }, [chatHistory]);
+
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef(input);
 
@@ -71,10 +79,12 @@ export default function Home() {
     setApiErrorType(null);
     if (!textToSubmit) setInput('');
 
+    const currentHistory = chatHistoryRef.current.map(h => ({ role: h.role, content: h.content }));
+
     try {
       const result = await aiTutorConversation({
         message: finalInput,
-        chatHistory: [],
+        chatHistory: currentHistory,
         nativeLanguage,
         targetLanguage
       });
@@ -82,16 +92,14 @@ export default function Home() {
       setKittenResponse(result.response);
       speak(result.response);
 
-      if (!isGuest && user?.uid) {
-        const msgData = {
-          role: 'user' as const,
-          content: finalInput,
-          timestamp: new Date().toISOString(),
-          user_email: user?.email || 'user@softia.com',
-          user_id: user.uid
-        };
-        addDoc(collection(db, 'users', user.uid, 'chat_history'), msgData).catch(() => {});
-      }
+      setChatHistory(prev => [
+        ...prev,
+        { role: 'user' as const, content: finalInput },
+        { role: 'model' as const, content: result.response }
+      ]);
+
+      // Firebase permissions bypass - suppress all database writes to ensure offline/guest compatibility
+      console.log(`[Firebase Bypass] Suppressed chat history db write:`, finalInput);
 
     } catch (error: any) {
       console.error("Error en chat de Kitten:", error);

@@ -14,9 +14,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function ConversacionMobile() {
   const logic = useConversacion();
 
-  // Último mensaje de cada hablante (el arreglo viene más-reciente-primero)
-  const lastNativeMsg = logic.history.filter(h => h.from === logic.nativeLanguage).at(0);
-  const lastForeignMsg = logic.history.filter(h => h.from === logic.targetLanguage).at(0);
+  // Historial cronológico invertido
+  const chronologicalHistory = [...logic.history].reverse();
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col p-5 pb-32 overflow-hidden">
@@ -33,6 +32,7 @@ export function ConversacionMobile() {
       </header>
 
       <div className="flex-1 flex flex-col gap-4 overflow-hidden mb-12 relative z-10">
+        {/* PANEL DE USUARIO LOCAL (ESPAÑOL) */}
         <motion.div 
           layout
           onClick={() => logic.isNativeTurn || logic.toggleTurn()}
@@ -42,22 +42,46 @@ export function ConversacionMobile() {
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={cn(
-            "relative rounded-[2.5rem] p-6 border flex flex-col justify-center overflow-hidden cursor-pointer hover:bg-primary/[0.03]", 
+            "relative rounded-[2.5rem] p-6 border flex flex-col justify-start overflow-hidden cursor-pointer hover:bg-primary/[0.03] transition-all", 
             logic.isNativeTurn ? "bg-primary/10 border-primary/40 shadow-neon-primary" : "bg-white/[0.02] border-white/5"
           )}
         >
-          <div className="absolute top-6 left-6 flex items-center gap-2">
-            <User className={cn("w-4 h-4", logic.isNativeTurn ? "text-primary" : "text-white/30")} />
-            <span className="text-[9px] uppercase tracking-wider font-bold text-white/40">Tú</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <User className={cn("w-4 h-4", logic.isNativeTurn ? "text-primary" : "text-white/30")} />
+              <span className="text-[9px] uppercase tracking-wider font-bold text-white/40">Tú (Español)</span>
+            </div>
+            {logic.isNativeTurn && logic.isRecording && (
+              <span className="text-[8px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Grabando</span>
+            )}
           </div>
-          <motion.p layout className={cn("font-headline font-bold transition-colors", logic.isNativeTurn ? "text-2xl text-white" : "text-lg text-white/40 line-clamp-2")}>
-            {lastNativeMsg?.original || "Habla ahora..."}
-          </motion.p>
-          {lastNativeMsg?.translated && logic.isNativeTurn && (
-            <p className="text-xs text-primary/70 italic mt-2">{lastNativeMsg.translated}</p>
-          )}
+          
+          <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
+            {chronologicalHistory.length === 0 ? (
+              <p className="font-headline font-bold text-lg text-white/30 italic">Toca el micrófono para empezar a hablar...</p>
+            ) : (
+              chronologicalHistory.map((item, idx) => {
+                const isSelf = item.from === logic.nativeLanguage;
+                return (
+                  <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
+                    <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-primary" : "text-white/30")}>
+                      {isSelf ? "Yo dije:" : "Él dijo:"}
+                    </span>
+                    <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
+                  </div>
+                );
+              })
+            )}
+            {logic.isRecording && logic.isNativeTurn && logic.liveTranscript && (
+              <div className="text-sm text-primary/70 animate-pulse italic">
+                <span className="font-bold mr-1.5 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
+                <span className="text-base">{logic.liveTranscript}</span>
+              </div>
+            )}
+          </div>
         </motion.div>
 
+        {/* PANEL DE INVITADO (EXTRANJERO) */}
         <motion.div 
           layout
           onClick={() => !logic.isNativeTurn || logic.toggleTurn()}
@@ -67,20 +91,43 @@ export function ConversacionMobile() {
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={cn(
-            "relative rounded-[2.5rem] p-6 border flex flex-col justify-center text-right items-end overflow-hidden cursor-pointer hover:bg-secondary/[0.03]", 
+            "relative rounded-[2.5rem] p-6 border flex flex-col justify-start overflow-hidden cursor-pointer hover:bg-secondary/[0.03] transition-all", 
             !logic.isNativeTurn ? "bg-secondary/10 border-secondary/40 shadow-neon-secondary" : "bg-white/[0.02] border-white/5"
           )}
         >
-          <div className="absolute top-6 right-6 flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-wider font-bold text-white/40">Invitado</span>
-            <Users className={cn("w-4 h-4", !logic.isNativeTurn ? "text-secondary" : "text-white/30")} />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] uppercase tracking-wider font-bold text-white/40">Invitado ({logic.targetLanguage})</span>
+              <Users className={cn("w-4 h-4", !logic.isNativeTurn ? "text-secondary" : "text-white/30")} />
+            </div>
+            {!logic.isNativeTurn && logic.isRecording && (
+              <span className="text-[8px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse">Grabando</span>
+            )}
           </div>
-          <motion.p layout className={cn("font-headline font-bold transition-colors", !logic.isNativeTurn ? "text-2xl text-white" : "text-lg text-white/40 line-clamp-2")}>
-            {lastForeignMsg?.original || "Esperando..."}
-          </motion.p>
-          {lastForeignMsg?.translated && !logic.isNativeTurn && (
-            <p className="text-xs text-secondary/70 italic mt-2">{lastForeignMsg.translated}</p>
-          )}
+
+          <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar text-left w-full pr-1">
+            {chronologicalHistory.length === 0 ? (
+              <p className="font-headline font-bold text-lg text-white/30 italic">Esperando que inicie el invitado...</p>
+            ) : (
+              chronologicalHistory.map((item, idx) => {
+                const isSelf = item.from === logic.targetLanguage;
+                return (
+                  <div key={idx} className={cn("text-sm transition-all duration-300", isSelf ? "text-white" : "text-white/60")}>
+                    <span className={cn("font-bold mr-1.5 text-[10px] uppercase tracking-wider", isSelf ? "text-secondary" : "text-white/30")}>
+                      {isSelf ? "Yo dije:" : "La persona dijo:"}
+                    </span>
+                    <span className="font-medium text-base leading-relaxed">{isSelf ? item.original : item.translated}</span>
+                  </div>
+                );
+              })
+            )}
+            {logic.isRecording && !logic.isNativeTurn && logic.liveTranscript && (
+              <div className="text-sm text-secondary/70 animate-pulse italic">
+                <span className="font-bold mr-1.5 text-[10px] uppercase tracking-wider">Transcribiendo:</span>
+                <span className="text-base">{logic.liveTranscript}</span>
+              </div>
+            )}
+          </div>
         </motion.div>
       </div>
 
@@ -98,6 +145,24 @@ export function ConversacionMobile() {
                {logic.isNativeTurn ? "Turno Local" : "Turno Invitado"}
             </motion.div>
           </AnimatePresence>
+
+          {/* VISOR DE AUDIO ESTILO WHATSAPP */}
+          {logic.isRecording && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              className="flex items-end justify-center gap-[3px] h-9 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary"
+            >
+              {logic.audioLevels.map((level, i) => (
+                <div 
+                  key={i} 
+                  className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
+                  style={{ height: `${level}%` }}
+                />
+              ))}
+            </motion.div>
+          )}
           
           <motion.div whileTap={{ scale: 0.9 }}>
             <Button
@@ -106,7 +171,7 @@ export function ConversacionMobile() {
               className={cn(
                 "h-20 w-20 rounded-full transition-all duration-300 flex items-center justify-center shadow-2xl relative overflow-hidden",
                 logic.isRecording 
-                  ? "bg-rose-500 scale-95" 
+                  ? "bg-rose-500 scale-95 shadow-neon-emerald" 
                   : logic.isSpeaking
                   ? "bg-primary/30 border border-primary/40"
                   : "bg-white hover:bg-white/90 text-black shadow-[0_0_40px_rgba(255,255,255,0.2)]"

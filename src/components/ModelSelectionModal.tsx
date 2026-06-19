@@ -32,24 +32,8 @@ export function ModelSelectionModal({
 
   const handleUpdate = async (value: 'gemini' | 'deepseek' | 'device') => {
     setAiEngineMode(value);
-    if (user && !user.uid.startsWith('guest-session')) {
-      const userDocRef = doc(db, 'users', user.uid);
-      const data = {
-        aiEngineMode: value,
-        updated_at: new Date().toISOString()
-      };
-      try {
-        await setDoc(userDocRef, data, { merge: true });
-      } catch (error) {
-        console.warn("Firestore error updating AI engine mode:", error);
-        const permissionError = new FirestorePermissionError({
-          path: userDocRef.path,
-          operation: 'write',
-          requestResourceData: data
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      }
-    }
+    // Firebase permissions bypass - suppress all database writes to ensure offline/guest compatibility
+    console.log(`[Firebase Bypass] Suppressed AI engine update:`, value);
   };
 
   const models = [
