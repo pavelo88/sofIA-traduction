@@ -86,7 +86,9 @@ export function useConversacion() {
     aiEngineMode,
     userCredits,
     addCredits,
-    setIsProfileOpen
+    setIsProfileOpen,
+    conversationHistory,
+    addConversationItem
   } = useStore();
 
   const { user } = useUser();
@@ -97,7 +99,12 @@ export function useConversacion() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [history, setHistory] = useState<ChatItem[]>([]);
+
+  // El historial proviene del store (persistido en localStorage)
+  const history: ChatItem[] = conversationHistory.map(item => ({
+    ...item,
+    timestamp: new Date(item.timestamp)
+  }));
   
   // Niveles de audio estilo WhatsApp
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(12));
@@ -155,8 +162,26 @@ export function useConversacion() {
       } catch (e) {}
     }
 
-    const alertUtterance = new SpeechSynthesisUtterance("¿Deseas continuar? Do you want to continue?");
-    alertUtterance.lang = "es-ES";
+    // Construir alerta en el idioma del hablante actual
+    const currentLangName = isNativeTurnRef.current ? nativeLangRef.current : targetLangRef.current;
+    const currentLangCode = langMap[currentLangName] || 'en-US';
+    const alertMessages: Record<string, string> = {
+      'es': '¿Deseas continuar?',
+      'en': 'Do you want to continue?',
+      'fr': 'Voulez-vous continuer?',
+      'de': 'Möchten Sie fortfahren?',
+      'pt': 'Deseja continuar?',
+      'it': 'Vuoi continuare?',
+      'zh': '你想继续吗？',
+      'ja': '続けますか？',
+      'ar': 'هل تريد الاستمرار؟',
+      'ru': 'Хотите продолжить?'
+    };
+    const langPrefix = currentLangCode.split('-')[0];
+    const alertText = alertMessages[langPrefix] || alertMessages['en'];
+
+    const alertUtterance = new SpeechSynthesisUtterance(alertText);
+    alertUtterance.lang = currentLangCode;
     alertUtterance.rate = 1.0;
 
     alertUtterance.onend = () => {
@@ -419,15 +444,14 @@ export function useConversacion() {
         translatedText = await translateOnDevice(text, fromLang, toLang);
       }
 
-      const newItem: ChatItem = {
+      // Persistir en el store (localStorage) en lugar de solo en memoria
+      addConversationItem({
         original: text,
         translated: translatedText,
         from: fromLang,
         to: toLang,
-        timestamp: new Date()
-      };
-
-      setHistory(prev => [newItem, ...prev]);
+        timestamp: new Date().toISOString()
+      });
       speakAndAutoTurn(translatedText, toLang);
 
     } catch (error) {
