@@ -37,10 +37,36 @@ import { ModelSelectionModal } from './ModelSelectionModal';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
+import { SavedSession } from '@/lib/store';
+
 const LANGUAGES = [
   "Español", "Inglés", "Francés", "Alemán", "Portugués", 
   "Italiano", "Chino", "Japonés", "Árabe", "Ruso"
 ];
+
+function SessionItem({ session, onClick, onDelete }: { session: SavedSession, onClick: () => void, onDelete: (e: React.MouseEvent) => void }) {
+  return (
+    <div 
+      onClick={onClick}
+      className="flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.05] p-3 rounded-xl border border-white/5 transition-colors cursor-pointer"
+    >
+      <div className="flex flex-col flex-1 min-w-0 pr-2">
+        <span className="text-xs font-bold text-white/90 truncate">{session.name}</span>
+        <span className="text-[9px] text-white/40">{new Date(session.date).toLocaleString()}</span>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          onClick={onDelete}
+          className="w-8 h-8 rounded-full text-white/40 hover:text-rose-400 hover:bg-rose-500/10"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function ProfileModal({ children }: { children?: React.ReactNode }) {
   const { user } = useUser();
@@ -53,9 +79,9 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
   
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SavedSession | null>(null);
 
   const handleUpdate = async (field: string, value: any) => {
-    // Firebase permissions bypass - suppress all database writes to ensure offline/guest compatibility
     console.log(`[Firebase Bypass] Suppressed profile write for ${field}:`, value);
   };
 
@@ -65,6 +91,16 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
       addCredits(5);
       setIsWatchingAd(false);
     }, 2000);
+  };
+
+  const handleLoadSession = (session: SavedSession) => {
+    loadSession(session.id);
+    setIsProfileOpen(false);
+    setSelectedSession(null);
+    if (session.type === 'chat') window.location.href = '/';
+    if (session.type === 'conversacion') window.location.href = '/conversacion';
+    if (session.type === 'lectura') window.location.href = '/reading';
+    if (session.type === 'lente') window.location.href = '/lens';
   };
 
   const engineNames = {
@@ -169,43 +205,53 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
               </Button>
             </div>
 
-            {/* Conversaciones Guardadas */}
+            {/* Historial de Sesiones (Memoria) */}
             <div className="space-y-4 pt-4 border-t border-white/5">
               <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold text-white/30 flex items-center gap-2">
-                <History className="w-3 h-3" /> Conversaciones Guardadas
+                <History className="w-3 h-3" /> Memoria Histórica
               </h3>
-              {savedSessions.length === 0 ? (
-                <div className="text-center text-white/40 text-xs italic py-4">No hay conversaciones guardadas.</div>
-              ) : (
-                <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                  {savedSessions.map(session => (
-                    <div key={session.id} className="flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.05] p-3 rounded-xl border border-white/5">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-white/90">{session.name}</span>
-                        <span className="text-[9px] text-white/40">{new Date(session.date).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => loadSession(session.id)}
-                          className="w-8 h-8 rounded-full text-secondary hover:text-secondary hover:bg-secondary/10"
-                        >
-                          <Play className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => deleteSession(session.id)}
-                          className="w-8 h-8 rounded-full text-white/40 hover:text-rose-400 hover:bg-rose-500/10"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              
+              <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                {/* Agrupador Chat */}
+                {savedSessions.filter(s => s.type === 'chat').length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-[9px] uppercase tracking-widest text-primary/70">Kitten Chat</h4>
+                    {savedSessions.filter(s => s.type === 'chat').map(session => (
+                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Agrupador Conversacion */}
+                {savedSessions.filter(s => s.type === 'conversacion').length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-[9px] uppercase tracking-widest text-emerald-400/70">Conversación Dual</h4>
+                    {savedSessions.filter(s => s.type === 'conversacion').map(session => (
+                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Agrupador Lectura */}
+                {savedSessions.filter(s => s.type === 'lectura').length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-[9px] uppercase tracking-widest text-secondary/70">Lectura</h4>
+                    {savedSessions.filter(s => s.type === 'lectura').map(session => (
+                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Agrupador Lente */}
+                {savedSessions.filter(s => s.type === 'lente').length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-[9px] uppercase tracking-widest text-purple-400/70">Lente AR</h4>
+                    {savedSessions.filter(s => s.type === 'lente').map(session => (
+                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
@@ -222,6 +268,64 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
         isOpen={isModelModalOpen} 
         onClose={() => setIsModelModalOpen(false)} 
       />
+
+      {/* Session Details Popup */}
+      <Dialog open={!!selectedSession} onOpenChange={(open) => !open && setSelectedSession(null)}>
+        <DialogContent className="glass-panel border-white/10 bg-zinc-950/95 backdrop-blur-3xl text-white rounded-[2.5rem] max-w-sm p-6 overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-xl text-primary">{selectedSession?.name}</DialogTitle>
+            <DialogDescription className="text-xs text-white/40">
+              {selectedSession && new Date(selectedSession.date).toLocaleString()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 max-h-[40vh] overflow-y-auto custom-scrollbar text-sm text-white/70 space-y-4">
+            {selectedSession?.type === 'chat' && (
+              <div className="space-y-2">
+                {selectedSession.data.slice(-3).map((msg: any, i: number) => (
+                  <div key={i} className={cn("p-3 rounded-2xl", msg.role === 'model' ? "bg-primary/20 text-white" : "bg-white/10 text-white/80")}>
+                    <p className="text-xs">{msg.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selectedSession?.type === 'conversacion' && (
+              <div className="space-y-2">
+                {selectedSession.data.slice(-3).map((msg: any, i: number) => (
+                  <div key={i} className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                    <p className="text-[10px] text-white/40 mb-1">{msg.from} &rarr; {msg.to}</p>
+                    <p className="text-xs font-bold text-white">{msg.original}</p>
+                    <p className="text-xs text-emerald-400">{msg.translated}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selectedSession?.type === 'lectura' && (
+              <div className="space-y-4">
+                <div className="text-center p-4 bg-secondary/10 rounded-2xl border border-secondary/20">
+                  <span className="text-3xl font-bold text-secondary">{selectedSession.data.evalResult.score}%</span>
+                  <p className="text-[10px] uppercase tracking-widest text-secondary/60">Precisión</p>
+                </div>
+                <p className="text-xs italic bg-white/5 p-3 rounded-xl">"{selectedSession.data.transcription}"</p>
+              </div>
+            )}
+            {selectedSession?.type === 'lente' && (
+              <div className="space-y-2 text-center py-4">
+                <p className="text-xs text-white/40 uppercase tracking-widest">Traducción Capturada</p>
+                <p className="text-lg font-bold text-purple-400">"{selectedSession.data.original}"</p>
+                <p className="text-xl font-headline text-white">&rarr; {selectedSession.data.translated}</p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button onClick={() => setSelectedSession(null)} variant="outline" className="flex-1 rounded-xl bg-white/5 border-white/10 hover:bg-white/10">
+              Cerrar
+            </Button>
+            <Button onClick={() => selectedSession && handleLoadSession(selectedSession)} className="flex-1 rounded-xl bg-primary hover:bg-primary/90 shadow-neon-primary text-white font-bold">
+              Ir a Módulo
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

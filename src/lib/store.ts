@@ -16,11 +16,14 @@ export interface ConversationItem {
   timestamp: string;
 }
 
+export type SessionType = 'chat' | 'conversacion' | 'lectura' | 'lente';
+
 export interface SavedSession {
   id: string;
+  type: SessionType;
   name: string;
   date: string;
-  history: ConversationItem[];
+  data: any; // Flexible data payload based on type
 }
 
 interface AppState {
@@ -62,6 +65,7 @@ interface AppState {
   setPartnerVoiceGender: (gender: 'masculino' | 'femenino') => void;
   addConversationItem: (item: ConversationItem) => void;
   saveAndClearConversation: (name: string) => void;
+  saveGenericSession: (type: SessionType, name: string, data: any) => void;
   loadSession: (id: string) => void;
   deleteSession: (id: string) => void;
   clearConversation: () => void;
@@ -124,26 +128,78 @@ export const useStore = create<AppState>()(
       setHasCompletedOnboarding: (val) => set({ hasCompletedOnboarding: val }),
       setUserVoiceGender: (gender) => set({ userVoiceGender: gender }),
       setPartnerVoiceGender: (gender) => set({ partnerVoiceGender: gender }),
-      addConversationItem: (item) => set((state) => ({
-        conversationHistory: [item, ...state.conversationHistory].slice(0, 50)
-      })),
+      addConversationItem: (item) => set((state) => {
+        const newHistory = [item, ...state.conversationHistory].slice(0, 50);
+        
+        // Auto-save logic
+        const today = new Date().toDateString();
+        const existingIdx = state.savedSessions.findIndex(s => s.type === 'conversacion' && new Date(s.date).toDateString() === today);
+        let newSessions = [...state.savedSessions];
+        
+        if (existingIdx >= 0) {
+          newSessions[existingIdx] = {
+            ...newSessions[existingIdx],
+            data: newHistory,
+            date: new Date().toISOString()
+          };
+        } else {
+          newSessions = [{
+            id: Math.random().toString(36).substr(2, 9),
+            type: 'conversacion',
+            name: `Conversación ${new Date().toLocaleDateString()}`,
+            date: new Date().toISOString(),
+            data: newHistory
+          }, ...newSessions];
+        }
+
+        return {
+          conversationHistory: newHistory,
+          savedSessions: newSessions
+        };
       saveAndClearConversation: (name) => set((state) => {
         if (state.conversationHistory.length === 0) return state;
         const newSession: SavedSession = {
           id: Math.random().toString(36).substr(2, 9),
+          type: 'conversacion',
           name,
           date: new Date().toISOString(),
-          history: [...state.conversationHistory]
+          data: [...state.conversationHistory]
         };
         return {
           savedSessions: [newSession, ...state.savedSessions],
           conversationHistory: []
         };
       }),
+      saveGenericSession: (type, name, data) => set((state) => {
+        // Find existing session of same type for "Today" or create new
+        const today = new Date().toDateString();
+        const existingIdx = state.savedSessions.findIndex(s => s.type === type && new Date(s.date).toDateString() === today && s.name === name);
+        
+        let newSessions = [...state.savedSessions];
+        if (existingIdx >= 0) {
+          newSessions[existingIdx] = {
+            ...newSessions[existingIdx],
+            data,
+            date: new Date().toISOString()
+          };
+        } else {
+          newSessions = [{
+            id: Math.random().toString(36).substr(2, 9),
+            type,
+            name,
+            date: new Date().toISOString(),
+            data
+          }, ...newSessions];
+        }
+        return { savedSessions: newSessions };
+      }),
       loadSession: (id) => set((state) => {
         const session = state.savedSessions.find(s => s.id === id);
         if (session) {
-          return { conversationHistory: [...session.history], isProfileOpen: false };
+          if (session.type === 'conversacion') {
+            return { conversationHistory: [...session.data], isProfileOpen: false };
+          }
+          // Other modules will load their own data from localStorage state or generic loading
         }
         return state;
       }),

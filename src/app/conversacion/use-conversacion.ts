@@ -160,6 +160,7 @@ export function useConversacion() {
   const currentTranscriptRef = useRef<string>('');
   const globalAccumulatedTranscriptRef = useRef<string>('');
   const recordingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const stopDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Mantener refs sincronizadas con el estado
   useEffect(() => { isNativeTurnRef.current = isNativeTurn; }, [isNativeTurn]);
@@ -200,6 +201,10 @@ export function useConversacion() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
+      
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
 
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 64; 
@@ -541,14 +546,16 @@ export function useConversacion() {
       stopAudioAnalyzer();
 
       // 2. Procesar traducción si se obtuvo texto combinando el buffer global y el actual
-      const textToTranslate = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
-      setLiveTranscript('');
-      globalAccumulatedTranscriptRef.current = '';
-      currentTranscriptRef.current = '';
-      
-      if (textToTranslate) {
-        handleTranslationInternal(textToTranslate);
-      }
+      stopDelayTimerRef.current = setTimeout(() => {
+        const textToTranslate = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+        setLiveTranscript('');
+        globalAccumulatedTranscriptRef.current = '';
+        currentTranscriptRef.current = '';
+        
+        if (textToTranslate) {
+          handleTranslationInternal(textToTranslate);
+        }
+      }, 400);
     } else {
       globalAccumulatedTranscriptRef.current = '';
       currentTranscriptRef.current = '';
@@ -586,6 +593,7 @@ export function useConversacion() {
 
   useEffect(() => {
     return () => {
+      if (stopDelayTimerRef.current) clearTimeout(stopDelayTimerRef.current);
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();

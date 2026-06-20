@@ -20,7 +20,7 @@ import { useStore } from '@/lib/store';
 export default function ReadingTutor() {
   const { user } = useUser();
   const db = useFirestore();
-  const { targetLanguage } = useStore();
+  const { targetLanguage, saveGenericSession } = useStore();
 
   const targetSentence = useMemo(() => {
     const sentences: Record<string, string> = {
@@ -62,6 +62,10 @@ export default function ReadingTutor() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
+
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
 
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 64; 
@@ -123,6 +127,16 @@ export default function ReadingTutor() {
       stopAudioAnalyzer();
     };
   }, []);
+
+  useEffect(() => {
+    if (evalResult) {
+      saveGenericSession('lectura', `Lectura en ${targetLanguage}`, {
+        evalResult,
+        transcription: transcriptionRef.current,
+        targetSentence
+      });
+    }
+  }, [evalResult, targetLanguage, targetSentence, saveGenericSession]);
 
   const toggleRecording = () => {
     if (isRecording) {

@@ -21,7 +21,19 @@ export default function ConversacionPage() {
     );
   }
 
-  if (isDesktop) return <ConversacionDesktop />;
-  if (isTablet) return <ConversacionTablet />;
-  return <ConversacionMobile />;
+  return (
+    <main className="relative min-h-screen bg-background overflow-hidden">
+      {/* BACKGROUND IMAGE - Faint */}
+      <div className="absolute inset-0 z-0 bg-[url('/images/kitty-globe.png')] bg-cover bg-center opacity-5 pointer-events-none" />
+      
+      {/* GRADIENT OVERLAYS */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-background/40 via-transparent to-background/90 pointer-events-none" />
+      
+      <div className="relative z-10 w-full h-full">
+        {isDesktop && <ConversacionDesktop />}
+        {isTablet && <ConversacionTablet />}
+        {!isDesktop && !isTablet && <ConversacionMobile />}
+      </div>
+    </main>
+  );
 }

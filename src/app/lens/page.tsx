@@ -22,6 +22,7 @@ export default function ARLens() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { user } = useUser();
   const db = useFirestore();
+  const { saveGenericSession } = useStore();
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -81,18 +82,26 @@ export default function ARLens() {
 
       setDetections(result.detections);
       
-      if (result.detections.length > 0 && user?.uid) {
+      if (result.detections.length > 0) {
         const first = result.detections[0];
         setLatestDetection({ original: first.originalText, translated: first.translatedText });
 
-        addDoc(collection(db, 'users', user.uid, 'chat_history'), {
-          role: 'model',
-          content: `Traducción AR: "${first.originalText}" -> "${first.translatedText}"`,
-          timestamp: new Date().toISOString(),
-          user_email: user.email || 'guest@softia.com',
-          user_id: user.uid,
-          metadata: { type: 'ar_tap_scan' }
+        saveGenericSession('lente', 'Escaneo Espacial', {
+          original: first.originalText,
+          translated: first.translatedText,
+          timestamp: new Date().toISOString()
         });
+
+        if (user?.uid) {
+          addDoc(collection(db, 'users', user.uid, 'chat_history'), {
+            role: 'model',
+            content: `Traducción AR: "${first.originalText}" -> "${first.translatedText}"`,
+            timestamp: new Date().toISOString(),
+            user_email: user.email || 'guest@softia.com',
+            user_id: user.uid,
+            metadata: { type: 'ar_tap_scan' }
+          });
+        }
       }
     } catch (error) {
       console.warn("[SoftIA Lens] Error en escaneo espacial:", error);

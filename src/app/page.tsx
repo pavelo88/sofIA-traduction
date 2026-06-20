@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 export default function Home() {
-  const { learningProgress, nativeLanguage, targetLanguage } = useStore();
+  const { learningProgress, nativeLanguage, targetLanguage, saveGenericSession } = useStore();
   const { user } = useUser();
   const db = useFirestore();
 
@@ -54,7 +54,11 @@ export default function Home() {
   const chatHistoryRef = useRef(chatHistory);
   useEffect(() => {
     chatHistoryRef.current = chatHistory;
-  }, [chatHistory]);
+    // Auto-save history
+    if (chatHistory.length > 1) {
+      saveGenericSession('chat', 'Chat con Kitten', chatHistory);
+    }
+  }, [chatHistory, saveGenericSession]);
 
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef(input);
@@ -190,157 +194,135 @@ export default function Home() {
   if (!isMounted) return null;
 
   return (
-    <main className="relative min-h-screen bg-background overflow-y-auto flex flex-col items-center pb-48 lg:pb-16">
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-primary/10 via-background to-background" />
+    <main className="relative h-[100dvh] bg-background overflow-hidden flex flex-col items-center">
+      {/* BACKGROUND IMAGE - Faint */}
+      <div className="absolute inset-0 z-0 bg-[url('/images/kitty-globe.png')] bg-cover bg-center opacity-5 pointer-events-none" />
 
-      <header className="relative z-20 w-full max-w-4xl pt-16 px-6 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
-        
-        {apiErrorType === '429' && (
-          <Alert variant="destructive" className="mb-6 border-rose-500/50 bg-rose-500/10 backdrop-blur-md">
-            <Wallet className="h-5 w-5 text-rose-500" />
-            <AlertTitle className="font-headline uppercase tracking-widest text-xs">Energía Agotada (429)</AlertTitle>
-          </Alert>
-        )}
+      {/* HEADER / TITULO */}
+      <div className="w-full max-w-2xl px-6 pt-12 pb-2 text-center z-10 shrink-0 animate-in fade-in slide-in-from-top-4 duration-700">
+        <h1 className="text-3xl font-headline font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400 drop-shadow-md">
+          SoftIA Tutor
+        </h1>
+        <p className="text-xs text-white/40 uppercase tracking-widest mt-1">Aprendizaje Espacial</p>
+      </div>
 
-        {/* CONTENEDOR DE BIENVENIDA */}
-        <div className="glass-panel p-8 rounded-[2.5rem] w-full flex flex-col md:flex-row items-center gap-8 border-white/10 shadow-primary/10 shadow-2xl bg-black/40 backdrop-blur-3xl">
-          <div className="relative shrink-0">
-            <div className="w-24 h-24 flex items-center justify-center">
-              <span className="text-7xl drop-shadow-[0_0_30px_rgba(161,98,247,0.8)]" role="img" aria-label="Kitten Avatar">🐱</span>
-            </div>
-            <div className={cn("absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-background flex items-center justify-center", isRecording ? "bg-rose-500 animate-ping" : "bg-green-500")} />
+      {/* SCROLLABLE CONTENT AREA */}
+      <div className="flex-1 w-full max-w-2xl overflow-y-auto custom-scrollbar px-6 pb-4 flex flex-col items-center">
+
+      {/* VISTA INICIAL (GATO Y MENSAJE) */}
+      {chatHistory.length <= 1 && (
+        <div className="flex flex-col items-center w-full max-w-2xl px-6 z-10 animate-in fade-in zoom-in duration-700">
+          {/* IMAGEN DEL GATO */}
+          <div className="w-full max-w-[280px] aspect-square relative rounded-[3rem] overflow-hidden shadow-2xl shadow-primary/20 mb-8 border border-white/5 group">
+            <div className="absolute inset-0 bg-[url('/images/kitty-globe.png')] bg-cover bg-center group-hover:scale-105 transition-transform duration-700" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-80" />
           </div>
 
-          <div className="flex-1 space-y-6 w-full text-center md:text-left">
-            <div className="text-lg font-medium text-white/90 leading-relaxed italic min-h-[3rem] flex items-center justify-center md:justify-start">
-              {isLoading ? (
-                <span className="flex items-center gap-3 text-primary text-sm font-headline uppercase tracking-widest animate-pulse">
-                  <Sparkles className="w-5 h-5 animate-spin" /> Procesando voz...
-                </span>
-              ) : (
-                `"${kittenResponse}"`
-              )}
-            </div>
-            
-            <div className="flex gap-3">
-              <Input 
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleKittenChat()}
-                placeholder={isRecording ? "Kitten te escucha..." : `Escribe algo para hablar...`}
-                disabled={isLoading}
-                className="bg-white/5 border-white/10 h-12 rounded-2xl text-sm focus-visible:ring-primary text-white"
-              />
-              <div className="flex gap-2">
-                <Button 
-                  onClick={toggleVoice}
-                  disabled={isLoading}
-                  className={cn(
-                    "h-12 w-12 rounded-2xl squish-effect shrink-0 transition-all duration-300 shadow-lg",
-                    isRecording 
-                      ? "bg-rose-500 hover:bg-rose-600" 
-                      : "bg-white/10 hover:bg-white/20 text-white"
+          {/* MENSAJE DE BIENVENIDA */}
+          <div className="glass-panel p-6 rounded-3xl border-primary/20 shadow-neon-primary bg-zinc-950/60 backdrop-blur-xl w-full relative group">
+            <p className="text-white/90 leading-relaxed font-medium italic text-base md:text-lg text-center">
+              "¡Hola! Soy Kitten. ¿Listo para nuestra sesión de traducción o aprendizaje espacial hoy? 😽✨"
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* CHAT INTERFACE */}
+      {chatHistory.length > 1 && (
+        <div className="w-full max-w-2xl flex-1 flex flex-col space-y-4 px-4 z-10 animate-in slide-in-from-bottom-8 duration-500">
+          {/* Boton para cerrar chat y volver al inicio */}
+          <div className="flex justify-between items-center px-2 py-4 mb-2">
+            <h2 className="text-sm font-headline text-primary uppercase tracking-widest flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> Chat Activo
+            </h2>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setChatHistory([{ role: 'model', content: kittenResponse }])}
+              className="text-white/40 hover:text-rose-400 hover:bg-rose-500/10 rounded-full text-xs transition-colors"
+            >
+              Cerrar Chat
+            </Button>
+          </div>
+
+          <div className="flex flex-col space-y-6 pb-8">
+            {chatHistory.slice(1).map((msg, idx) => (
+              <div key={idx} className={cn("flex w-full", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                <div className={cn(
+                  "p-4 rounded-3xl max-w-[85%] text-sm md:text-base leading-relaxed shadow-lg relative group",
+                  msg.role === 'user' ? "bg-primary/80 text-white rounded-br-sm" : "glass-panel text-white/90 rounded-bl-sm"
+                )}>
+                  {msg.content}
+                  
+                  {/* Boton de Play para reproducir (solo respuestas de IA) */}
+                  {msg.role === 'model' && (
+                    <button 
+                      onClick={() => {
+                        import('@/lib/voice/mixed-speaker').then(({ speakMixedText }) => {
+                          speakMixedText(msg.content, nativeLanguage, targetLanguage, 'femenino', 'femenino');
+                        });
+                      }}
+                      className="absolute -right-12 bottom-0 p-2 rounded-full bg-white/5 hover:bg-primary/20 text-white/40 hover:text-primary transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Zap className="w-4 h-4" />
+                    </button>
                   )}
-                >
-                  {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </Button>
-                <Button 
-                  onClick={() => handleKittenChat()}
-                  disabled={isLoading || !input.trim()}
-                  className="h-12 w-12 rounded-2xl bg-primary hover:bg-primary/80 squish-effect shrink-0"
-                >
-                  <Send className="w-5 h-5 text-white" />
-                </Button>
+                </div>
               </div>
-            </div>
+            ))}
+            {isLoading && (
+              <div className="flex w-full justify-start">
+                <div className="glass-panel p-4 rounded-3xl rounded-bl-sm text-sm text-primary animate-pulse flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce" />
+                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce delay-75" />
+                  <div className="w-2 h-2 rounded-full bg-primary animate-bounce delay-150" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        {/* ESTADOS DEL SISTEMA */}
-        <div className="flex flex-wrap justify-center gap-4 mt-8">
-          <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-white/60 border-white/5 bg-white/[0.02]">
-            <Activity className="w-4 h-4 text-green-500" /> NÚCLEO_IA: ONLINE
-          </div>
-          <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-white/60 border-white/5 bg-white/[0.02]">
-            <Star className="w-4 h-4 text-primary fill-primary" /> NIVEL: {currentLevel}%
-          </div>
-          {isGuest && (
-            <div className="glass-panel px-6 py-2 rounded-full flex items-center gap-3 text-[10px] uppercase tracking-widest text-rose-400 border-rose-500/20 bg-rose-500/5">
-              MODO INVITADO
-            </div>
-          )}
-        </div>
+      {/* ESPACIADOR FLEXIBLE PARA EMPUJAR INPUT ABAJO SI NO HAY CHAT */}
+      <div className="flex-1 min-h-[2rem]" />
 
-        {/* BENTO GRID DE ACCESO RÁPIDO */}
-        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 mt-16 text-left">
+      {/* BOTTOM CONTROL BAR */}
+      <div className="w-full max-w-2xl px-6 z-40 mb-6 shrink-0 mt-8">
+        <div className="glass-panel p-2 rounded-[2.5rem] border-white/10 shadow-2xl flex items-center gap-3 bg-zinc-950/90 backdrop-blur-3xl relative overflow-hidden">
+          {isRecording && <div className="absolute inset-0 bg-primary/10 animate-pulse" />}
           
-          <Link href="/lens" className="group">
-            <div className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-primary/30 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-300 flex flex-col justify-between h-48 cursor-pointer relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-colors" />
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-2xl bg-primary/15 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                  <Camera className="w-6 h-6" />
-                </div>
-                <ArrowRight className="w-5 h-5 text-white/20 group-hover:text-primary transition-colors" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline font-bold text-lg text-white">Lente AR Visión</h3>
-                <p className="text-xs text-white/40 leading-relaxed">Escanea textos en el mundo real y tradúcelos de manera inmersiva.</p>
-              </div>
-            </div>
-          </Link>
+          <Button 
+            onClick={() => handleKittenChat()}
+            disabled={isLoading || !input.trim()}
+            className="h-14 w-14 rounded-full bg-white/5 hover:bg-primary/20 squish-effect shrink-0 relative z-10 transition-colors text-white hover:text-primary"
+          >
+            <Send className="w-5 h-5 ml-1" />
+          </Button>
 
-          <Link href="/conversacion" className="group">
-            <div className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-secondary/30 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-300 flex flex-col justify-between h-48 cursor-pointer relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/5 rounded-full blur-2xl group-hover:bg-secondary/10 transition-colors" />
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-2xl bg-secondary/15 flex items-center justify-center text-secondary group-hover:scale-105 transition-transform">
-                  <Mic className="w-6 h-6" />
-                </div>
-                <ArrowRight className="w-5 h-5 text-white/20 group-hover:text-secondary transition-colors" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline font-bold text-lg text-white">Conversación Dual</h3>
-                <p className="text-xs text-white/40 leading-relaxed">Intermediación y traducción por voz fluida para entablar diálogos en tiempo real.</p>
-              </div>
-            </div>
-          </Link>
+          <Input 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleKittenChat()}
+            placeholder={isRecording ? "Kitten escucha..." : "Escribe un mensaje..."}
+            disabled={isLoading}
+            className="flex-1 bg-transparent border-none h-14 text-sm md:text-base focus-visible:ring-0 text-white placeholder:text-white/30 relative z-10 px-0"
+          />
 
-          <Link href="/reading" className="group">
-            <div className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-emerald-500/30 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-300 flex flex-col justify-between h-48 cursor-pointer relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors" />
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-                <ArrowRight className="w-5 h-5 text-white/20 group-hover:text-emerald-400 transition-colors" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline font-bold text-lg text-white">Práctica de Lectura</h3>
-                <p className="text-xs text-white/40 leading-relaxed">Mejora tu pronunciación leyendo frases objetivo con retroalimentación espacial.</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/chat" className="group">
-            <div className="glass-panel p-6 rounded-[2rem] border-white/5 hover:border-purple-500/30 bg-white/[0.01] hover:bg-white/[0.03] transition-all duration-300 flex flex-col justify-between h-48 cursor-pointer relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl group-hover:bg-purple-500/10 transition-colors" />
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/15 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform">
-                  <MessageSquare className="w-6 h-6" />
-                </div>
-                <ArrowRight className="w-5 h-5 text-white/20 group-hover:text-purple-400 transition-colors" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-headline font-bold text-lg text-white">Chat Tutor Kitten</h3>
-                <p className="text-xs text-white/40 leading-relaxed">Entabla chats informales con tu gatito asistente virtual en tu idioma objetivo.</p>
-              </div>
-            </div>
-          </Link>
-
+          <Button 
+            onClick={toggleVoice}
+            disabled={isLoading}
+            className={cn(
+              "h-14 w-14 rounded-full squish-effect shrink-0 transition-all duration-300 relative z-10 shadow-xl",
+              isRecording 
+                ? "bg-rose-500 hover:bg-rose-600 shadow-neon-emerald" 
+                : "bg-primary hover:bg-primary/90 text-white"
+            )}
+          >
+            {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+          </Button>
         </div>
+      </div>
 
-      </header>
     </main>
   );
 }

@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Camera, BookOpen, Mic2, MessageSquare, User, Sparkles } from 'lucide-react';
+import { Home, Camera, BookOpen, Mic2, MessageSquare, Search, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CatGlassIcon } from '@/components/ui/cat-glass-icon';
 import { ProfileModal } from '@/components/ProfileModal';
 
 const navItems = [
@@ -36,27 +37,31 @@ export function SidebarNav() {
         </div>
 
         {/* NAVIGATION LINKS */}
-        <nav className="flex-1 py-8 space-y-2">
-          {navItems.map((item) => {
+        <nav className="flex-1 py-8 space-y-4">
+          {navItems.map((item, index) => {
             const isActive = pathname === item.href;
+            const variants: ('primary' | 'secondary' | 'green' | 'purple')[] = ['primary', 'secondary', 'green', 'purple', 'primary'];
+            
             return (
               <Link key={item.name} href={item.href}>
                 <button
                   className={cn(
-                    "w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group relative overflow-hidden",
-                    isActive 
-                      ? "bg-white/5 text-primary border border-white/5" 
-                      : "text-white/40 hover:text-white hover:bg-white/[0.02]"
+                    "w-full flex items-center gap-4 px-4 py-2 rounded-2xl transition-all duration-300 group relative overflow-visible",
+                    isActive ? "bg-white/5 border border-white/5" : "hover:bg-white/[0.02]"
                   )}
                 >
-                  {isActive && (
-                    <div className="absolute left-0 top-3 bottom-3 w-1 rounded-full bg-primary" />
-                  )}
-                  <item.icon className={cn(
-                    "w-5 h-5 transition-transform duration-300 group-hover:scale-110",
-                    isActive ? "text-primary drop-shadow-[0_0_8px_rgba(161,98,247,0.8)]" : "text-white/40 group-hover:text-white"
-                  )} />
-                  <span className="text-xs font-headline uppercase tracking-widest">{item.name}</span>
+                  <CatGlassIcon 
+                    icon={item.icon} 
+                    isActive={isActive} 
+                    className="w-12 h-12" 
+                    variant={variants[index % variants.length]} 
+                  />
+                  <span className={cn(
+                    "text-xs font-headline uppercase tracking-widest transition-colors duration-300",
+                    isActive ? "text-white font-bold" : "text-white/40 group-hover:text-white/80"
+                  )}>
+                    {item.name}
+                  </span>
                 </button>
               </Link>
             );
@@ -66,19 +71,15 @@ export function SidebarNav() {
         {/* FOOTER & PROFILE SECTION */}
         <div className="space-y-6">
           <div className="h-px bg-white/5" />
-          
           <div className="flex items-center justify-between px-2">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[8px] font-headline text-white/20 uppercase tracking-wider">Núcleo IA</span>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                <span className="text-[9px] font-headline text-green-500 uppercase tracking-widest font-bold">En Línea</span>
-              </div>
+              <span className="text-[8px] font-headline text-white/40 uppercase tracking-widest font-bold">Núcleo IA</span>
+              <span className="text-[10px] font-headline text-white/60 lowercase tracking-wider">soft-ia-traduction</span>
             </div>
 
             <ProfileModal>
-              <button className="p-3 rounded-2xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300 squish-effect">
-                <User className="w-4 h-4" />
+              <button className="p-3 rounded-2xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300 squish-effect flex items-center justify-center">
+                <Search className="w-4 h-4" />
               </button>
             </ProfileModal>
           </div>

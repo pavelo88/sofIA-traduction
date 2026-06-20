@@ -177,8 +177,12 @@ export function ConversacionDesktop() {
                             {isSelf ? logic.nativeName : logic.targetName}
                           </span>
                           <div className={cn("p-4 rounded-2xl shadow-lg", isSelf ? "bg-primary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
-                            <p className="text-base font-medium leading-relaxed">{item.original}</p>
-                            <p className="text-xs opacity-70 mt-1.5 italic border-t border-white/20 pt-1.5">{item.translated}</p>
+                            <p className="text-base font-medium leading-relaxed">
+                              {item.from === logic.nativeLanguage ? item.original : item.translated}
+                            </p>
+                            <p className="text-xs opacity-70 mt-1.5 italic border-t border-white/20 pt-1.5">
+                              {item.from === logic.nativeLanguage ? item.translated : item.original}
+                            </p>
                           </div>
                         </div>
                       );
@@ -341,8 +345,12 @@ export function ConversacionDesktop() {
                             {isSelf ? logic.targetName : logic.nativeName}
                           </span>
                           <div className={cn("p-4 rounded-2xl shadow-lg", isSelf ? "bg-secondary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
-                            <p className="text-base font-medium leading-relaxed">{item.original}</p>
-                            <p className="text-xs opacity-70 mt-1.5 italic border-t border-white/20 pt-1.5">{item.translated}</p>
+                            <p className="text-base font-medium leading-relaxed">
+                              {item.from === logic.targetLanguage ? item.original : item.translated}
+                            </p>
+                            <p className="text-xs opacity-70 mt-1.5 italic border-t border-white/20 pt-1.5">
+                              {item.from === logic.targetLanguage ? item.translated : item.original}
+                            </p>
                           </div>
                         </div>
                       );
