@@ -184,13 +184,36 @@ export function ConversacionDesktop() {
                       );
                     })
                   )}
-                  {logic.isRecording && logic.isNativeTurn && logic.liveTranscript && (
+                  {logic.isRecording && logic.isNativeTurn && (
                     <div className="flex flex-col w-full max-w-[85%] ml-auto items-end mb-2">
                       <span className="text-[9px] uppercase tracking-wider mb-1 px-1 font-bold text-primary/70 animate-pulse">
-                        Transcribiendo...
+                        {logic.liveTranscript ? "Transcribiendo..." : "Escuchando..."}
                       </span>
                       <div className="p-4 rounded-2xl shadow-lg bg-primary/40 text-white rounded-tr-sm border border-primary/50 animate-pulse">
-                        <p className="text-base font-medium leading-relaxed">{logic.liveTranscript}</p>
+                        {logic.liveTranscript ? (
+                          <p className="text-base font-medium leading-relaxed">{logic.liveTranscript}</p>
+                        ) : (
+                          <div className="flex items-center gap-1.5 h-6">
+                            <span className="w-2 h-2 bg-white/70 rounded-full animate-bounce" />
+                            <span className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                            <span className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {logic.isProcessing && logic.isNativeTurn && (
+                    <div className="flex flex-col w-full max-w-[85%] ml-auto items-end mb-2">
+                      <span className="text-[9px] uppercase tracking-wider mb-1 px-1 font-bold text-primary/70 animate-pulse">
+                        Traduciendo...
+                      </span>
+                      <div className="p-4 rounded-2xl shadow-lg bg-primary/20 text-primary-foreground rounded-tr-sm border border-primary/30 flex items-center gap-3">
+                        <div className="flex gap-2">
+                           <span className="w-2 h-2 bg-primary/70 rounded-full animate-pulse" />
+                           <span className="w-2 h-2 bg-primary/70 rounded-full animate-pulse" style={{ animationDelay: '0.15s' }} />
+                           <span className="w-2 h-2 bg-primary/70 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }} />
+                        </div>
+                        <p className="text-base font-medium italic opacity-80">Preparando tu mensaje...</p>
                       </div>
                     </div>
                   )}
@@ -325,13 +348,36 @@ export function ConversacionDesktop() {
                       );
                     })
                   )}
-                  {logic.isRecording && !logic.isNativeTurn && logic.liveTranscript && (
+                  {logic.isRecording && !logic.isNativeTurn && (
                     <div className="flex flex-col w-full max-w-[85%] ml-auto items-end mb-2">
                       <span className="text-[9px] uppercase tracking-wider mb-1 px-1 font-bold text-secondary/70 animate-pulse">
-                        Transcribiendo...
+                        {logic.liveTranscript ? "Transcribiendo..." : "Escuchando..."}
                       </span>
                       <div className="p-4 rounded-2xl shadow-lg bg-secondary/40 text-white rounded-tr-sm border border-secondary/50 animate-pulse">
-                        <p className="text-base font-medium leading-relaxed">{logic.liveTranscript}</p>
+                        {logic.liveTranscript ? (
+                          <p className="text-base font-medium leading-relaxed">{logic.liveTranscript}</p>
+                        ) : (
+                          <div className="flex items-center gap-1.5 h-6">
+                            <span className="w-2 h-2 bg-white/70 rounded-full animate-bounce" />
+                            <span className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                            <span className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {logic.isProcessing && !logic.isNativeTurn && (
+                    <div className="flex flex-col w-full max-w-[85%] ml-auto items-end mb-2">
+                      <span className="text-[9px] uppercase tracking-wider mb-1 px-1 font-bold text-secondary/70 animate-pulse">
+                        Traduciendo...
+                      </span>
+                      <div className="p-4 rounded-2xl shadow-lg bg-secondary/20 text-secondary-foreground rounded-tr-sm border border-secondary/30 flex items-center gap-3">
+                        <div className="flex gap-2">
+                           <span className="w-2 h-2 bg-secondary/70 rounded-full animate-pulse" />
+                           <span className="w-2 h-2 bg-secondary/70 rounded-full animate-pulse" style={{ animationDelay: '0.15s' }} />
+                           <span className="w-2 h-2 bg-secondary/70 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }} />
+                        </div>
+                        <p className="text-base font-medium italic opacity-80">Preparando respuesta...</p>
                       </div>
                     </div>
                   )}
