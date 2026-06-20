@@ -6,6 +6,7 @@ import { arTextTranslation, type ARTextTranslationOutput } from '@/ai/flows/ar-t
 import { Sparkles, Radio, MousePointer2, Info, Camera, ScanText } from 'lucide-react';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { useStore } from '@/lib/store';
 
 /**
  * @summary ARLens: Escáner espacial inmersivo de pantalla completa (Cinematic Experience).

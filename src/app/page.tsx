@@ -285,13 +285,18 @@ export default function Home() {
 
       {/* ESPACIADOR FLEXIBLE PARA EMPUJAR INPUT ABAJO SI NO HAY CHAT */}
       <div className="flex-1 min-h-[2rem]" />
+      </div> {/* <-- CIERRE DE SCROLLABLE CONTENT AREA */}
 
       {/* BOTTOM CONTROL BAR */}
-      <div className="w-full max-w-2xl px-6 z-40 mb-6 shrink-0 mt-8">
-        <div className="glass-panel p-2 rounded-[2.5rem] border-white/10 shadow-2xl flex items-center gap-3 bg-zinc-950/90 backdrop-blur-3xl relative overflow-hidden">
+      <div className="w-full max-w-2xl px-6 z-40 pb-24 shrink-0 mt-2">
+        <form 
+          onSubmit={(e) => { e.preventDefault(); handleKittenChat(); }}
+          className="glass-panel p-2 rounded-[2.5rem] border-white/10 shadow-2xl flex items-center gap-3 bg-zinc-950/90 backdrop-blur-3xl relative overflow-hidden"
+        >
           {isRecording && <div className="absolute inset-0 bg-primary/10 animate-pulse" />}
           
           <Button 
+            type="button"
             onClick={() => handleKittenChat()}
             disabled={isLoading || !input.trim()}
             className="h-14 w-14 rounded-full bg-white/5 hover:bg-primary/20 squish-effect shrink-0 relative z-10 transition-colors text-white hover:text-primary"
@@ -320,7 +325,7 @@ export default function Home() {
           >
             {isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </Button>
-        </div>
+        </form>
       </div>
 
     </main>

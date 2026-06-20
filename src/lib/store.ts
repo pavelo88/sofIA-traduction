@@ -156,6 +156,7 @@ export const useStore = create<AppState>()(
           conversationHistory: newHistory,
           savedSessions: newSessions
         };
+      }),
       saveAndClearConversation: (name) => set((state) => {
         if (state.conversationHistory.length === 0) return state;
         const newSession: SavedSession = {
