@@ -164,8 +164,12 @@ export function ConversacionTablet() {
                           {isSelf ? logic.nativeName : logic.targetName}
                         </span>
                         <div className={cn("p-5 rounded-3xl shadow-lg", isSelf ? "bg-primary/90 text-white rounded-tr-md" : "bg-white/10 text-white rounded-tl-md")}>
-                          <p className="text-xl font-medium leading-relaxed">{item.original}</p>
-                          <p className="text-sm opacity-70 mt-2 italic border-t border-white/20 pt-2">{item.translated}</p>
+                          <p className="text-xl font-medium leading-relaxed">
+                            {item.from === logic.nativeLanguage ? item.original : item.translated}
+                          </p>
+                          <p className="text-sm opacity-70 mt-2 italic border-t border-white/20 pt-2">
+                            {item.from === logic.nativeLanguage ? item.translated : item.original}
+                          </p>
                         </div>
                       </div>
                     );
@@ -283,8 +287,12 @@ export function ConversacionTablet() {
                           {isSelf ? logic.targetName : logic.nativeName}
                         </span>
                         <div className={cn("p-5 rounded-3xl shadow-lg", isSelf ? "bg-secondary/90 text-white rounded-tr-md" : "bg-white/10 text-white rounded-tl-md")}>
-                          <p className="text-xl font-medium leading-relaxed">{item.original}</p>
-                          <p className="text-sm opacity-70 mt-2 italic border-t border-white/20 pt-2">{item.translated}</p>
+                          <p className="text-xl font-medium leading-relaxed">
+                            {item.from === logic.targetLanguage ? item.original : item.translated}
+                          </p>
+                          <p className="text-sm opacity-70 mt-2 italic border-t border-white/20 pt-2">
+                            {item.from === logic.targetLanguage ? item.translated : item.original}
+                          </p>
                         </div>
                       </div>
                     );
