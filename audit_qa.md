@@ -4,12 +4,19 @@ Este documento presenta una auditoría completa de Experiencia de Usuario (UX) y
 
 ## 1. Análisis de Experiencia de Usuario (UX)
 
-### 1.1 Inconsistencias entre Escritorio y Móvil
-Se observó una disparidad masiva entre la versión de Escritorio y la versión Móvil/Tablet. 
+### 1.1 UI & Experiencia (Mobile & Desktop)
+- [x] **Inversión de Idiomas en Burbujas**: RESUELTO. Implementación de lógica de renderizado relativo ternario en todos los paneles.
+- [x] **Safari AudioContext Suspension**: RESUELTO. Agregada lógica de `resume()` para Safari iOS.
+
+### 1.2 Core Técnico & Motor de Traducción
+- [x] **Word Cut-off en Web Speech API**: RESUELTO a nivel local con delay de 400ms en el buffer `onresult`.
+- [!] **Fallo Critico de Grabación Continua (iOS/Safari)**: PENDIENTE. Safari bloquea el reinicio automático del micrófono (`setTimeout` en `onend`), causando un estado UI "zombie" donde parece grabar pero no recibe audio. Requiere refactorización a "Pulsar para Hablar" o abandonar Web Speech API a favor de WebSockets + Whisper.
+- [!] **Dependencia de IA para Traducción**: IDENTIFICADO. Web Speech API transcribe, pero NO traduce. Sin conexión a una IA (Gemini/Cloud), la app pierde su capacidad de traducir entre idiomas.
+### 1.3 Inconsistencias Históricas (Resueltas)
 * **Escritorio:** Disfrutaba de un diseño de pantalla dividida (side-by-side) que permitía ver a ambos interlocutores al mismo tiempo. Al interactuar, el flujo era natural.
 * **Móvil:** La interfaz móvil estaba fragmentada. Debido a la falta de espacio, se implementó una vista donde solo el "Hablante Activo" era visible a pantalla completa. Esto obligaba al usuario a "dar un tap" en la parte superior o inferior para cambiar forzosamente la vista, lo cual arruinaba la lectura de mensajes pasados e interrumpía la lógica del turno nativo.
 
-### 1.2 El Problema del Perfil Sobrecargado
+### 1.4 El Problema del Perfil Sobrecargado
 El modal de perfil (`ProfileModal.tsx`) fue diseñado inicialmente como un menú de configuración (cambio de Motor IA, voces, idioma). Sin embargo, se sobrecargó al inyectarle todo el **Historial de Conversaciones** sin ningún sistema de paginación. 
 * **Impacto UX:** El usuario se enfrentaba a un modal kilométrico sin posibilidad de filtrar.
 * **Impacto Técnico:** Al no existir agrupadores, la carga masiva de datos en el DOM del Modal corría el riesgo de colapsar la app cuando el usuario acumulara cientos de mensajes.
