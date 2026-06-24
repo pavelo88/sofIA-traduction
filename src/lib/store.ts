@@ -130,32 +130,7 @@ export const useStore = create<AppState>()(
       setPartnerVoiceGender: (gender) => set({ partnerVoiceGender: gender }),
       addConversationItem: (item) => set((state) => {
         const newHistory = [item, ...state.conversationHistory].slice(0, 50);
-        
-        // Auto-save logic
-        const today = new Date().toDateString();
-        const existingIdx = state.savedSessions.findIndex(s => s.type === 'conversacion' && new Date(s.date).toDateString() === today);
-        let newSessions = [...state.savedSessions];
-        
-        if (existingIdx >= 0) {
-          newSessions[existingIdx] = {
-            ...newSessions[existingIdx],
-            data: newHistory,
-            date: new Date().toISOString()
-          };
-        } else {
-          newSessions = [{
-            id: Math.random().toString(36).substr(2, 9),
-            type: 'conversacion',
-            name: `Conversación ${new Date().toLocaleDateString()}`,
-            date: new Date().toISOString(),
-            data: newHistory
-          }, ...newSessions];
-        }
-
-        return {
-          conversationHistory: newHistory,
-          savedSessions: newSessions
-        };
+        return { conversationHistory: newHistory };
       }),
       saveAndClearConversation: (name) => set((state) => {
         if (state.conversationHistory.length === 0) return state;
