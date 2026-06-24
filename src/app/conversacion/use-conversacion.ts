@@ -158,6 +158,7 @@ export function useConversacion() {
 
   const [isNativeTurn, setIsNativeTurn] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
+  const [isPreparingMic, setIsPreparingMic] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -304,24 +305,28 @@ export function useConversacion() {
       const isExpectedToRecord = true;
 
       recognition.onstart = () => {
-        setIsRecording(true);
-        setLiveTranscript(globalAccumulatedTranscriptRef.current);
-        currentTranscriptRef.current = '';
+        setIsPreparingMic(true);
+        setTimeout(() => {
+          setIsPreparingMic(false);
+          setIsRecording(true);
+          setLiveTranscript(globalAccumulatedTranscriptRef.current);
+          currentTranscriptRef.current = '';
 
-        // Iniciar temporizador si no está corriendo
-        if (!recordingTimerIntervalRef.current) {
-          setRecordingTime(0);
-          recordingTimerIntervalRef.current = setInterval(() => {
-            setRecordingTime((prev) => {
-              if (prev >= 119) {
-                // Detener automáticamente al llegar al límite (120s)
-                setTimeout(() => toggleSession(), 0);
-                return 120;
-              }
-              return prev + 1;
-            });
-          }, 1000);
-        }
+          // Iniciar temporizador si no está corriendo
+          if (!recordingTimerIntervalRef.current) {
+            setRecordingTime(0);
+            recordingTimerIntervalRef.current = setInterval(() => {
+              setRecordingTime((prev) => {
+                if (prev >= 119) {
+                  // Detener automáticamente al llegar al límite (120s)
+                  setTimeout(() => toggleSession(), 0);
+                  return 120;
+                }
+                return prev + 1;
+              });
+            }, 1000);
+          }
+        }, 500);
       };
 
       recognition.onresult = (event: any) => {
@@ -620,7 +625,7 @@ export function useConversacion() {
   }, [isCameraActive]);
 
   return {
-    isNativeTurn, isRecording, isProcessing, isSpeaking,
+    isNativeTurn, isRecording, isPreparingMic, isProcessing, isSpeaking,
     isCameraActive, setIsCameraActive,
     history, toggleSession, toggleTurn, startListening, streamRef,
     nativeLanguage, targetLanguage, nativeName, targetName,

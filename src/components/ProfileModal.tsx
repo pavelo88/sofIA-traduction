@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -32,7 +32,9 @@ import {
   Server,
   History,
   Trash2,
-  Play
+  Play,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { ModelSelectionModal } from './ModelSelectionModal';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -82,6 +84,59 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SavedSession | null>(null);
   const [selectedHistoryCategory, setSelectedHistoryCategory] = useState<string | null>(null);
+  
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [deviceInfo, setDeviceInfo] = useState<'ios' | 'android' | 'desktop' | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+      setIsStandalone(true);
+    }
+
+    const ua = navigator.userAgent.toLowerCase();
+    if (/ipad|iphone|ipod/.test(ua)) {
+      setDeviceInfo('ios');
+    } else if (/android/.test(ua)) {
+      setDeviceInfo('android');
+    } else {
+      setDeviceInfo('desktop');
+    }
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (installPrompt) {
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } else if (deviceInfo === 'ios') {
+      import('@/hooks/use-toast').then(({ toast }) => {
+        toast({
+          title: "Instalar en iOS",
+          description: "Toca el botón 'Compartir' en la barra de Safari y selecciona 'Agregar a Inicio'.",
+        });
+      });
+    } else {
+      import('@/hooks/use-toast').then(({ toast }) => {
+        toast({
+          title: "App lista",
+          description: "Busca la opción 'Instalar Aplicación' o 'Añadir a pantalla de inicio' en tu navegador.",
+        });
+      });
+    }
+  };
 
   const handleUpdate = async (field: string, value: any) => {
     console.log(`[Firebase Bypass] Suppressed profile write for ${field}:`, value);
@@ -136,6 +191,17 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
                   <h4 className="font-headline font-bold text-lg tracking-tight">Explorador Espacial</h4>
                   <p className="text-xs text-white/40">{user?.email || 'Modo Invitado Activo'}</p>
                 </div>
+                {!isStandalone && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleInstallClick} 
+                    className="text-[10px] font-bold uppercase tracking-wider rounded-full bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary/30 h-8"
+                  >
+                    {deviceInfo === 'desktop' ? <Download className="w-3.5 h-3.5 mr-1.5" /> : <Smartphone className="w-3.5 h-3.5 mr-1.5" />}
+                    Instalar
+                  </Button>
+                )}
               </div>
               <div className="space-y-2 pt-2">
                 <div className="flex justify-between text-[10px] uppercase tracking-widest font-bold text-white/40">

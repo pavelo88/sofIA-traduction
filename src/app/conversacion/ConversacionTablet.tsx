@@ -164,22 +164,36 @@ export function ConversacionTablet() {
                           {isSelf ? logic.nativeName : logic.targetName}
                         </span>
                         <div className={cn("p-4 rounded-3xl shadow-lg relative group", isSelf ? "bg-primary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
-                          <p className="text-base font-medium leading-relaxed pr-8">
-                            {item.from === logic.nativeLanguage ? item.original : item.translated}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-base font-medium leading-relaxed pr-4">
+                              {item.from === logic.nativeLanguage ? item.original : item.translated}
+                            </p>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const textToPlay = item.from === logic.nativeLanguage ? item.original : item.translated;
+                                const langName = item.from === logic.nativeLanguage ? logic.nativeLanguage : logic.targetLanguage;
+                                const genderToUse = item.from === logic.nativeLanguage ? logic.userVoiceGender : logic.partnerVoiceGender;
+                                logic.replayAudio(textToPlay, langName, genderToUse);
+                              }}
+                              className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
+                            >
+                              <Volume2 className="w-4 h-4 opacity-80" />
+                            </button>
+                          </div>
                           <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/20">
-                            <p className="text-sm opacity-70 italic">
+                            <p className="text-sm opacity-70 italic pr-4">
                               {item.from === logic.nativeLanguage ? item.translated : item.original}
                             </p>
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const textToPlay = isSelf ? item.translated : item.original;
-                                const langName = isSelf ? logic.targetLanguage : logic.nativeLanguage;
-                                const genderToUse = isSelf ? logic.partnerVoiceGender : logic.userVoiceGender;
+                                const textToPlay = item.from === logic.nativeLanguage ? item.translated : item.original;
+                                const langName = item.from === logic.nativeLanguage ? logic.targetLanguage : logic.nativeLanguage;
+                                const genderToUse = item.from === logic.nativeLanguage ? logic.partnerVoiceGender : logic.userVoiceGender;
                                 logic.replayAudio(textToPlay, langName, genderToUse);
                               }}
-                              className="p-1.5 rounded-full hover:bg-white/20 transition-colors ml-2"
+                              className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
                             >
                               <Volume2 className="w-4 h-4 opacity-80" />
                             </button>
@@ -300,13 +314,41 @@ export function ConversacionTablet() {
                         <span className={cn("text-xs uppercase tracking-wider mb-1 px-1 font-bold", isSelf ? "text-secondary/70" : "text-white/40")}>
                           {isSelf ? logic.targetName : logic.nativeName}
                         </span>
-                        <div className={cn("p-5 rounded-3xl shadow-lg", isSelf ? "bg-secondary/90 text-white rounded-tr-md" : "bg-white/10 text-white rounded-tl-md")}>
-                          <p className="text-xl font-medium leading-relaxed">
-                            {item.from === logic.targetLanguage ? item.original : item.translated}
-                          </p>
-                          <p className="text-sm opacity-70 mt-2 italic border-t border-white/20 pt-2">
-                            {item.from === logic.targetLanguage ? item.translated : item.original}
-                          </p>
+                        <div className={cn("p-5 rounded-3xl shadow-lg relative group", isSelf ? "bg-secondary/90 text-white rounded-tr-md" : "bg-white/10 text-white rounded-tl-md")}>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xl font-medium leading-relaxed pr-4">
+                              {item.from === logic.targetLanguage ? item.original : item.translated}
+                            </p>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const textToPlay = item.from === logic.targetLanguage ? item.original : item.translated;
+                                const langName = item.from === logic.targetLanguage ? logic.targetLanguage : logic.nativeLanguage;
+                                const genderToUse = item.from === logic.targetLanguage ? logic.partnerVoiceGender : logic.userVoiceGender;
+                                logic.replayAudio(textToPlay, langName, genderToUse);
+                              }}
+                              className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
+                            >
+                              <Volume2 className="w-4 h-4 opacity-80" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/20">
+                            <p className="text-sm opacity-70 italic pr-4">
+                              {item.from === logic.targetLanguage ? item.translated : item.original}
+                            </p>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const textToPlay = item.from === logic.targetLanguage ? item.translated : item.original;
+                                const langName = item.from === logic.targetLanguage ? logic.nativeLanguage : logic.targetLanguage;
+                                const genderToUse = item.from === logic.targetLanguage ? logic.userVoiceGender : logic.partnerVoiceGender;
+                                logic.replayAudio(textToPlay, langName, genderToUse);
+                              }}
+                              className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
+                            >
+                              <Volume2 className="w-4 h-4 opacity-80" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -386,6 +428,17 @@ export function ConversacionTablet() {
           </motion.div>
         )}
 
+        {logic.isPreparingMic && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-4 py-2 rounded-full uppercase tracking-widest animate-pulse border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)] mb-2"
+          >
+            Preparando...
+          </motion.div>
+        )}
+
         <div className="flex items-center gap-10 glass-panel p-4 rounded-full border-white/10 bg-white/[0.02] shadow-2xl">
           <Button
             onClick={() => logic.setIsCameraActive(!logic.isCameraActive)}
@@ -397,18 +450,18 @@ export function ConversacionTablet() {
           <motion.div whileTap={{ scale: 0.9 }}>
             <Button
               onClick={logic.toggleSession}
-              disabled={logic.isProcessing || logic.isSpeaking}
+              disabled={logic.isProcessing || logic.isSpeaking || logic.isPreparingMic}
               className={cn(
                 "h-24 w-24 rounded-full transition-all duration-300 flex items-center justify-center border-4 border-transparent shadow-2xl relative",
                 logic.isRecording 
-                  ? "bg-rose-500 scale-95 border-rose-500/20 shadow-neon-emerald" 
+                  ? "bg-red-500 hover:bg-red-400 scale-95 border-red-500/20 shadow-neon-emerald" 
                   : logic.isSpeaking
                   ? "bg-primary/30 border border-primary/40"
                   : "bg-white text-black hover:bg-white/90"
               )}
             >
               {logic.isRecording && (
-                <div className="absolute inset-0 bg-rose-400/50 animate-ping rounded-full z-0" />
+                <div className="absolute inset-0 bg-red-400/50 animate-ping rounded-full z-0" />
               )}
               {logic.isSpeaking && (
                 <div className="absolute inset-0 bg-primary/20 animate-pulse rounded-full z-0" />
