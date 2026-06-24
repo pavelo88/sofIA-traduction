@@ -191,17 +191,31 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
                   <h4 className="font-headline font-bold text-lg tracking-tight">Explorador Espacial</h4>
                   <p className="text-xs text-white/40">{user?.email || 'Modo Invitado Activo'}</p>
                 </div>
-                {!isStandalone && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleInstallClick} 
-                    className="text-[10px] font-bold uppercase tracking-wider rounded-full bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary/30 h-8"
-                  >
-                    {deviceInfo === 'desktop' ? <Download className="w-3.5 h-3.5 mr-1.5" /> : <Smartphone className="w-3.5 h-3.5 mr-1.5" />}
-                    Instalar
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {!isStandalone && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleInstallClick} 
+                      className="text-[10px] font-bold uppercase tracking-wider rounded-full bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary/30 h-8"
+                    >
+                      {deviceInfo === 'desktop' ? <Download className="w-3.5 h-3.5 mr-1.5" /> : <Smartphone className="w-3.5 h-3.5 mr-1.5" />}
+                      PWA
+                    </Button>
+                  )}
+                  {deviceInfo !== 'ios' && (
+                    <a href="/downloads/softia-android.apk" download="SoftIA_Android.apk">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-[10px] font-bold uppercase tracking-wider rounded-full bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500/20 hover:border-green-500/30 h-8"
+                      >
+                        <Download className="w-3.5 h-3.5 mr-1.5" />
+                        APK
+                      </Button>
+                    </a>
+                  )}
+                </div>
               </div>
               <div className="space-y-2 pt-2">
                 <div className="flex justify-between text-[10px] uppercase tracking-widest font-bold text-white/40">
