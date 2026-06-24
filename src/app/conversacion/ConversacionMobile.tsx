@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescri
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,24 @@ import { NewChatSetupModal } from '@/components/modals/NewChatSetupModal';
 export function ConversacionMobile() {
   const logic = useConversacion();
   const { defaultNativeName, defaultTargetName, setDefaultNativeName, setDefaultTargetName } = useStore();
+  
+  const nativeScrollRef = useRef<HTMLDivElement>(null);
+  const targetScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll para panel local
+  useEffect(() => {
+    if (nativeScrollRef.current) {
+      nativeScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logic.history, logic.liveTranscript, logic.isProcessing]);
+
+  // Auto-scroll para panel invitado
+  useEffect(() => {
+    if (targetScrollRef.current) {
+      targetScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logic.history, logic.liveTranscript, logic.isProcessing]);
+
   const { toast } = useToast();
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
@@ -218,6 +236,7 @@ export function ConversacionMobile() {
                       </div>
                     </div>
                   )}
+                  <div ref={nativeScrollRef} className="h-4" />
                 </div>
               </motion.div>
             )}
@@ -383,6 +402,7 @@ export function ConversacionMobile() {
                       </div>
                     </div>
                   )}
+                  <div ref={targetScrollRef} className="h-4" />
                 </div>
               </motion.div>
             )}

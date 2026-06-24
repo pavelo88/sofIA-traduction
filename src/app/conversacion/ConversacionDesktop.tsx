@@ -43,6 +43,21 @@ export function ConversacionDesktop() {
   const chronologicalHistory = [...logic.history].reverse();
   const [isChatSetupOpen, setIsChatSetupOpen] = useState(logic.history.length === 0);
 
+  const nativeScrollRef = useRef<HTMLDivElement>(null);
+  const targetScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (nativeScrollRef.current) {
+      nativeScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logic.history, logic.liveTranscript, logic.isProcessing]);
+
+  useEffect(() => {
+    if (targetScrollRef.current) {
+      targetScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logic.history, logic.liveTranscript, logic.isProcessing]);
+
   useEffect(() => {
     if (videoRef.current && logic.streamRef.current && logic.isCameraActive) {
       videoRef.current.srcObject = logic.streamRef.current;
@@ -245,6 +260,7 @@ export function ConversacionDesktop() {
                       </div>
                     </div>
                   )}
+                  <div ref={nativeScrollRef} className="h-4" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -437,6 +453,7 @@ export function ConversacionDesktop() {
                       </div>
                     </div>
                   )}
+                  <div ref={targetScrollRef} className="h-4" />
                 </motion.div>
               )}
             </AnimatePresence>

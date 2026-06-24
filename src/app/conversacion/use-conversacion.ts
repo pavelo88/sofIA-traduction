@@ -400,13 +400,60 @@ export function useConversacion() {
    * Inicia síntesis de voz y cambia de turno pero NO auto-inicia el micrófono.
    * "El grabador inicia cuando doy clic y termina cuando doy clic, la app no adivina".
    */
-  const speakAndAutoTurn = useCallback((text: string, langName: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
+  const speakAndAutoTurn = useCallback(async (text: string, langName: string) => {
+    if (typeof window === 'undefined') return;
+    
+    // Preparar el cambio de turno
+    const finishSpeaking = () => {
+      if (!isSpeakingRef.current) return;
+      isSpeakingRef.current = false;
+      setIsSpeaking(false);
+      
       setIsNativeTurn(prev => {
         const next = !prev;
         isNativeTurnRef.current = next;
         return next;
       });
+      console.log("[SoftIA Voice] Síntesis finalizada. Esperando activación manual del micrófono.");
+    };
+
+    setIsSpeaking(true);
+    isSpeakingRef.current = true;
+    const targetGender = isNativeTurnRef.current ? partnerVoiceGender : userVoiceGender;
+
+    // Intentar ElevenLabs API Route primero
+    try {
+      const langCode = langMap[langName] || 'en-US';
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, gender: targetGender, langCode })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          finishSpeaking();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          finishSpeaking();
+        };
+        
+        await audio.play();
+        return; // Éxito con ElevenLabs, salir temprano
+      }
+    } catch (err) {
+      console.warn('[SoftIA Voice] Fallo ElevenLabs, usando voz del navegador:', err);
+    }
+
+    // FALLBACK: SpeechSynthesis nativo
+    if (!window.speechSynthesis) {
+      finishSpeaking();
       return;
     }
 
@@ -419,7 +466,6 @@ export function useConversacion() {
     utterance.rate = 0.95;
 
     const voices = window.speechSynthesis.getVoices();
-    const targetGender = isNativeTurnRef.current ? partnerVoiceGender : userVoiceGender;
 
     const voice = voices.find(v => {
       const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
@@ -433,23 +479,14 @@ export function useConversacion() {
 
     let fallbackTimeout: NodeJS.Timeout;
     
-    const finishSpeaking = () => {
-      if (!isSpeakingRef.current) return;
-      isSpeakingRef.current = false;
-      setIsSpeaking(false);
+    // Redefinimos finishSpeaking local para este contexto (limpiar timeouts)
+    const fallbackFinishSpeaking = () => {
       if (fallbackTimeout) clearTimeout(fallbackTimeout);
-      
-      // Alternar turno para el siguiente hablante
-      setIsNativeTurn(prev => {
-        const next = !prev;
-        isNativeTurnRef.current = next;
-        return next;
-      });
-      console.log("[SoftIA Voice] Síntesis finalizada. Esperando activación manual del micrófono.");
+      finishSpeaking();
     };
 
-    utterance.onend = finishSpeaking;
-    utterance.onerror = finishSpeaking;
+    utterance.onend = fallbackFinishSpeaking;
+    utterance.onerror = fallbackFinishSpeaking;
 
     window.speechSynthesis.speak(utterance);
     isSpeakingRef.current = true;
@@ -465,7 +502,7 @@ export function useConversacion() {
     const pollInterval = setInterval(() => {
       if (!window.speechSynthesis.speaking && isSpeakingRef.current) {
          clearInterval(pollInterval);
-         finishSpeaking();
+         fallbackFinishSpeaking();
       } else if (!isSpeakingRef.current) {
          clearInterval(pollInterval);
       }
@@ -475,10 +512,36 @@ export function useConversacion() {
   /**
    * Reproduce el audio de un mensaje sin cambiar el turno.
    */
-  const replayAudio = useCallback((text: string, langName: string, gender: 'masculino' | 'femenino') => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+  const replayAudio = useCallback(async (text: string, langName: string, gender: 'masculino' | 'femenino') => {
+    if (typeof window === 'undefined') return;
     
-    // Si ya está hablando, lo cancelamos antes de iniciar el nuevo
+    // Intentar ElevenLabs API Route primero
+    try {
+      const langCode = langMap[langName] || 'en-US';
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, gender, langCode })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.onerror = () => URL.revokeObjectURL(url);
+        
+        await audio.play();
+        return; // Éxito con ElevenLabs
+      }
+    } catch (err) {
+      console.warn('[SoftIA Voice] Fallo replay ElevenLabs, usando fallback:', err);
+    }
+
+    if (!window.speechSynthesis) return;
+
+    // Si ya está hablando el robot nativo, lo cancelamos antes de iniciar el nuevo
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);

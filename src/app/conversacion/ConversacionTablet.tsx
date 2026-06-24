@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useConversacion, getLocalizedLabels } from './use-conversacion';
 import { 
   Mic, MicOff, Camera, CameraOff, User, Users, RotateCw, Sparkles, Settings2, Sparkle, Trash2, Volume2
@@ -25,6 +25,22 @@ export function ConversacionTablet() {
   const logic = useConversacion();
   const { defaultNativeName, defaultTargetName, setDefaultNativeName, setDefaultTargetName } = useStore();
   const { toast } = useToast();
+  
+  const nativeScrollRef = useRef<HTMLDivElement>(null);
+  const targetScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (nativeScrollRef.current) {
+      nativeScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logic.history, logic.liveTranscript, logic.isProcessing]);
+
+  useEffect(() => {
+    if (targetScrollRef.current) {
+      targetScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logic.history, logic.liveTranscript, logic.isProcessing]);
+
   const [isTableModeActive, setIsTableModeActive] = useState(false);
   
   const formatTime = (secs: number) => {
@@ -232,6 +248,7 @@ export function ConversacionTablet() {
                     </div>
                   </div>
                 )}
+                <div ref={nativeScrollRef} className="h-4" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -379,6 +396,7 @@ export function ConversacionTablet() {
                     </div>
                   </div>
                 )}
+                <div ref={targetScrollRef} className="h-4" />
               </motion.div>
             )}
           </AnimatePresence>
