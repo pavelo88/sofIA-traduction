@@ -187,7 +187,9 @@ export function useConversacion() {
   const isRecordingRef = useRef(isRecording);
 
   const currentTranscriptRef = useRef<string>('');
+  const sessionFinalTranscriptRef = useRef<string>('');
   const globalAccumulatedTranscriptRef = useRef<string>('');
+  const isSpeakingRef = useRef<boolean>(false);
   const recordingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const stopDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -330,27 +332,33 @@ export function useConversacion() {
       };
 
       recognition.onresult = (event: any) => {
-        let interim = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        let finalFromSession = '';
+        let interimFromSession = '';
+        for (let i = 0; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
-            globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + event.results[i][0].transcript).trim();
+            finalFromSession += event.results[i][0].transcript + ' ';
           } else {
-            interim += event.results[i][0].transcript + ' ';
+            interimFromSession += event.results[i][0].transcript + ' ';
           }
         }
-        currentTranscriptRef.current = interim.trim();
-        setLiveTranscript((globalAccumulatedTranscriptRef.current + ' ' + interim).trim());
+        sessionFinalTranscriptRef.current = finalFromSession.trim();
+        currentTranscriptRef.current = interimFromSession.trim();
+        
+        const fullText = (globalAccumulatedTranscriptRef.current + ' ' + sessionFinalTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+        setLiveTranscript(fullText);
       };
 
       recognition.onend = () => {
+        const sessionFull = (sessionFinalTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+        if (sessionFull) {
+          globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + sessionFull).trim();
+        }
+        sessionFinalTranscriptRef.current = '';
+        currentTranscriptRef.current = '';
+
         if (isRecordingRef.current) {
           // El navegador detuvo el micro antes de tiempo
           console.log("[SoftIA Voice] Micro detenido por el navegador. Reiniciando de forma invisible...");
-          // Si quedó algo a medias (no final), lo guardamos para no perderlo
-          if (currentTranscriptRef.current) {
-            globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
-            currentTranscriptRef.current = '';
-          }
           setTimeout(() => startListening(), 50);
           return;
         }
@@ -423,28 +431,45 @@ export function useConversacion() {
 
     if (voice) utterance.voice = voice;
 
-    utterance.onend = () => {
+    let fallbackTimeout: NodeJS.Timeout;
+    
+    const finishSpeaking = () => {
+      if (!isSpeakingRef.current) return;
+      isSpeakingRef.current = false;
       setIsSpeaking(false);
+      if (fallbackTimeout) clearTimeout(fallbackTimeout);
+      
       // Alternar turno para el siguiente hablante
       setIsNativeTurn(prev => {
         const next = !prev;
         isNativeTurnRef.current = next;
         return next;
       });
-      // NO llamar a startListening() de manera automática para el auto-turno
       console.log("[SoftIA Voice] Síntesis finalizada. Esperando activación manual del micrófono.");
     };
 
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setIsNativeTurn(prev => {
-        const next = !prev;
-        isNativeTurnRef.current = next;
-        return next;
-      });
-    };
+    utterance.onend = finishSpeaking;
+    utterance.onerror = finishSpeaking;
 
     window.speechSynthesis.speak(utterance);
+    isSpeakingRef.current = true;
+    setIsSpeaking(true);
+
+    // Timeout de seguridad de 30 segundos si Android Chrome falla
+    fallbackTimeout = setTimeout(() => {
+       console.warn("[SoftIA Voice] Forzando detención de síntesis de voz (Timeout 30s)");
+       finishSpeaking();
+    }, 30000);
+
+    // Polling interval for Android stuck TTS bug
+    const pollInterval = setInterval(() => {
+      if (!window.speechSynthesis.speaking && isSpeakingRef.current) {
+         clearInterval(pollInterval);
+         finishSpeaking();
+      } else if (!isSpeakingRef.current) {
+         clearInterval(pollInterval);
+      }
+    }, 1000);
   }, [partnerVoiceGender, userVoiceGender]);
 
   /**
@@ -550,9 +575,10 @@ export function useConversacion() {
 
       // 2. Procesar traducción si se obtuvo texto combinando el buffer global y el actual
       stopDelayTimerRef.current = setTimeout(() => {
-        const textToTranslate = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+        const textToTranslate = (globalAccumulatedTranscriptRef.current + ' ' + sessionFinalTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
         setLiveTranscript('');
         globalAccumulatedTranscriptRef.current = '';
+        sessionFinalTranscriptRef.current = '';
         currentTranscriptRef.current = '';
 
         if (textToTranslate) {
@@ -561,6 +587,7 @@ export function useConversacion() {
       }, 400);
     } else {
       globalAccumulatedTranscriptRef.current = '';
+      sessionFinalTranscriptRef.current = '';
       currentTranscriptRef.current = '';
       startListening();
     }
@@ -582,10 +609,12 @@ export function useConversacion() {
     }
     setIsRecording(false);
     setIsSpeaking(false);
+    isSpeakingRef.current = false;
     stopAudioAnalyzer();
     stopRecordingTimer();
     setLiveTranscript('');
     globalAccumulatedTranscriptRef.current = '';
+    sessionFinalTranscriptRef.current = '';
     currentTranscriptRef.current = '';
     setIsNativeTurn(prev => {
       const next = !prev;
