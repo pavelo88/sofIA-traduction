@@ -325,22 +325,27 @@ export function useConversacion() {
       };
 
       recognition.onresult = (event: any) => {
-        let accumulated = '';
-        for (let i = 0; i < event.results.length; i++) {
-          accumulated += event.results[i][0].transcript + ' ';
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + event.results[i][0].transcript).trim();
+          } else {
+            interim += event.results[i][0].transcript + ' ';
+          }
         }
-        const finalVal = accumulated.trim();
-        currentTranscriptRef.current = finalVal;
-        setLiveTranscript((globalAccumulatedTranscriptRef.current + ' ' + finalVal).trim());
+        currentTranscriptRef.current = interim.trim();
+        setLiveTranscript((globalAccumulatedTranscriptRef.current + ' ' + interim).trim());
       };
 
       recognition.onend = () => {
         if (isRecordingRef.current) {
           // El navegador detuvo el micro antes de tiempo
           console.log("[SoftIA Voice] Micro detenido por el navegador. Reiniciando de forma invisible...");
-          // Guardar lo recolectado en esta mini-sesión al buffer global
-          globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
-          currentTranscriptRef.current = '';
+          // Si quedó algo a medias (no final), lo guardamos para no perderlo
+          if (currentTranscriptRef.current) {
+            globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
+            currentTranscriptRef.current = '';
+          }
           setTimeout(() => startListening(), 50);
           return;
         }
@@ -436,6 +441,34 @@ export function useConversacion() {
 
     window.speechSynthesis.speak(utterance);
   }, [partnerVoiceGender, userVoiceGender]);
+
+  /**
+   * Reproduce el audio de un mensaje sin cambiar el turno.
+   */
+  const replayAudio = useCallback((text: string, langName: string, gender: 'masculino' | 'femenino') => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    
+    // Si ya está hablando, lo cancelamos antes de iniciar el nuevo
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    const langCode = langMap[langName] || 'en-US';
+    utterance.lang = langCode;
+    utterance.rate = 0.95;
+
+    const voices = window.speechSynthesis.getVoices();
+    const genderRegex = gender === 'femenino'
+      ? /female|woman|zira|samantha|helena|laura|google/i
+      : /male|man|david|mark|pablo|sergio/i;
+
+    const voice = voices.find(v => {
+      const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
+      return isLangMatch && genderRegex.test(v.name);
+    }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
+
+    if (voice) utterance.voice = voice;
+    window.speechSynthesis.speak(utterance);
+  }, []);
 
   /**
    * Lógica de traducción.
@@ -594,6 +627,6 @@ export function useConversacion() {
     setNativeLanguage, setTargetLanguage, setNativeName, setTargetName,
     userVoiceGender, partnerVoiceGender, setUserVoiceGender, setPartnerVoiceGender,
     liveTranscript, recordingTime,
-    saveAndClearConversation, clearConversation
+    saveAndClearConversation, clearConversation, replayAudio
   };
 }

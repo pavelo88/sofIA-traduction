@@ -3,7 +3,7 @@
 import { useConversacion, getLocalizedLabels } from './use-conversacion';
 import { 
   Mic, MicOff, Camera, CameraOff, History, Sparkles, User, Users,
-  Wifi, ArrowUpDown, Volume2, Trash2
+  Wifi, ArrowUpDown, Volume2, Trash2, RotateCw, Settings2, Sparkle, MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -176,13 +176,27 @@ export function ConversacionDesktop() {
                           <span className={cn("text-[9px] uppercase tracking-wider mb-1 px-1 font-bold", isSelf ? "text-primary/70" : "text-white/40")}>
                             {isSelf ? logic.nativeName : logic.targetName}
                           </span>
-                          <div className={cn("p-4 rounded-2xl shadow-lg", isSelf ? "bg-primary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
-                            <p className="text-base font-medium leading-relaxed">
+                          <div className={cn("p-5 rounded-3xl shadow-lg relative group", isSelf ? "bg-primary/90 text-white rounded-tr-md" : "bg-white/10 text-white rounded-tl-md")}>
+                            <p className="text-base font-medium leading-relaxed pr-8">
                               {item.from === logic.nativeLanguage ? item.original : item.translated}
                             </p>
-                            <p className="text-xs opacity-70 mt-1.5 italic border-t border-white/20 pt-1.5">
-                              {item.from === logic.nativeLanguage ? item.translated : item.original}
-                            </p>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/20">
+                              <p className="text-xs opacity-70 italic">
+                                {item.from === logic.nativeLanguage ? item.translated : item.original}
+                              </p>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const textToPlay = isSelf ? item.translated : item.original;
+                                  const langName = isSelf ? logic.targetLanguage : logic.nativeLanguage;
+                                  const genderToUse = isSelf ? logic.partnerVoiceGender : logic.userVoiceGender;
+                                  logic.replayAudio(textToPlay, langName, genderToUse);
+                                }}
+                                className="p-2 rounded-full hover:bg-white/20 transition-colors ml-4"
+                              >
+                                <Volume2 className="w-5 h-5 opacity-80" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
