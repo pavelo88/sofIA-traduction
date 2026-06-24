@@ -192,6 +192,7 @@ export function useConversacion() {
   const isSpeakingRef = useRef<boolean>(false);
   const recordingTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const stopDelayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -421,92 +422,92 @@ export function useConversacion() {
     isSpeakingRef.current = true;
     const targetGender = isNativeTurnRef.current ? partnerVoiceGender : userVoiceGender;
 
-    // Intentar ElevenLabs API Route primero
-    try {
-      const langCode = langMap[langName] || 'en-US';
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, gender: targetGender, langCode })
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        
-        audio.onended = () => {
-          URL.revokeObjectURL(url);
-          finishSpeaking();
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(url);
-          finishSpeaking();
-        };
-        
-        await audio.play();
-        return; // Éxito con ElevenLabs, salir temprano
-      }
-    } catch (err) {
-      console.warn('[SoftIA Voice] Fallo ElevenLabs, usando voz del navegador:', err);
+    // Detener cualquier audio previo
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
 
-    // FALLBACK: SpeechSynthesis nativo
-    if (!window.speechSynthesis) {
-      finishSpeaking();
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    setIsSpeaking(true);
-
-    const utterance = new SpeechSynthesisUtterance(text);
     const langCode = langMap[langName] || 'en-US';
-    utterance.lang = langCode;
-    utterance.rate = 0.95;
 
-    const voices = window.speechSynthesis.getVoices();
+    // 1. Intentar Voz Nativa Primero (Prioridad Local)
+    if (window.speechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = langCode;
+      utterance.rate = 0.95;
 
-    const voice = voices.find(v => {
-      const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
+      const voices = window.speechSynthesis.getVoices();
       const genderRegex = targetGender === 'femenino'
         ? /female|woman|zira|samantha|helena|laura|google/i
         : /male|man|david|mark|pablo|sergio/i;
-      return isLangMatch && genderRegex.test(v.name);
-    }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
 
-    if (voice) utterance.voice = voice;
+      let voice = voices.find(v => {
+        const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
+        return isLangMatch && genderRegex.test(v.name);
+      }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
 
-    let fallbackTimeout: NodeJS.Timeout;
-    
-    // Redefinimos finishSpeaking local para este contexto (limpiar timeouts)
-    const fallbackFinishSpeaking = () => {
-      if (fallbackTimeout) clearTimeout(fallbackTimeout);
-      finishSpeaking();
-    };
-
-    utterance.onend = fallbackFinishSpeaking;
-    utterance.onerror = fallbackFinishSpeaking;
-
-    window.speechSynthesis.speak(utterance);
-    isSpeakingRef.current = true;
-    setIsSpeaking(true);
-
-    // Timeout de seguridad de 30 segundos si Android Chrome falla
-    fallbackTimeout = setTimeout(() => {
-       console.warn("[SoftIA Voice] Forzando detención de síntesis de voz (Timeout 30s)");
-       finishSpeaking();
-    }, 30000);
-
-    // Polling interval for Android stuck TTS bug
-    const pollInterval = setInterval(() => {
-      if (!window.speechSynthesis.speaking && isSpeakingRef.current) {
-         clearInterval(pollInterval);
-         fallbackFinishSpeaking();
-      } else if (!isSpeakingRef.current) {
-         clearInterval(pollInterval);
+      if (voice) {
+        utterance.voice = voice;
+        utterance.onend = finishSpeaking;
+        utterance.onerror = (e) => {
+          console.warn("[SoftIA Voice] Error nativo, intentando ElevenLabs", e);
+          fallbackToElevenLabs();
+        };
+        window.speechSynthesis.speak(utterance);
+        
+        // Polling para Android
+        const pollInterval = setInterval(() => {
+          if (!window.speechSynthesis.speaking && isSpeakingRef.current) {
+             clearInterval(pollInterval);
+             finishSpeaking();
+          } else if (!isSpeakingRef.current) {
+             clearInterval(pollInterval);
+          }
+        }, 1000);
+        return;
       }
-    }, 1000);
+    }
+
+    // 2. Si no hay voces nativas o falla, intentar ElevenLabs (Fallback)
+    fallbackToElevenLabs();
+
+    async function fallbackToElevenLabs() {
+      try {
+        const response = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, gender: targetGender, langCode })
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          currentAudioRef.current = audio;
+          
+          audio.onended = () => {
+            URL.revokeObjectURL(url);
+            currentAudioRef.current = null;
+            finishSpeaking();
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(url);
+            currentAudioRef.current = null;
+            finishSpeaking();
+          };
+          
+          await audio.play();
+        } else {
+          finishSpeaking();
+        }
+      } catch (err) {
+        console.warn('[SoftIA Voice] Fallo absoluto de TTS:', err);
+        finishSpeaking();
+      }
+    }
   }, [partnerVoiceGender, userVoiceGender]);
 
   /**
@@ -514,53 +515,70 @@ export function useConversacion() {
    */
   const replayAudio = useCallback(async (text: string, langName: string, gender: 'masculino' | 'femenino') => {
     if (typeof window === 'undefined') return;
-    
-    // Intentar ElevenLabs API Route primero
-    try {
-      const langCode = langMap[langName] || 'en-US';
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, gender, langCode })
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        
-        audio.onended = () => URL.revokeObjectURL(url);
-        audio.onerror = () => URL.revokeObjectURL(url);
-        
-        await audio.play();
-        return; // Éxito con ElevenLabs
-      }
-    } catch (err) {
-      console.warn('[SoftIA Voice] Fallo replay ElevenLabs, usando fallback:', err);
+
+    // Detener cualquier audio previo
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
 
-    if (!window.speechSynthesis) return;
-
-    // Si ya está hablando el robot nativo, lo cancelamos antes de iniciar el nuevo
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
     const langCode = langMap[langName] || 'en-US';
-    utterance.lang = langCode;
-    utterance.rate = 0.95;
 
-    const voices = window.speechSynthesis.getVoices();
-    const genderRegex = gender === 'femenino'
-      ? /female|woman|zira|samantha|helena|laura|google/i
-      : /male|man|david|mark|pablo|sergio/i;
+    // 1. Intentar Voz Nativa Primero
+    if (window.speechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = langCode;
+      utterance.rate = 0.95;
 
-    const voice = voices.find(v => {
-      const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
-      return isLangMatch && genderRegex.test(v.name);
-    }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
+      const voices = window.speechSynthesis.getVoices();
+      const genderRegex = gender === 'femenino'
+        ? /female|woman|zira|samantha|helena|laura|google/i
+        : /male|man|david|mark|pablo|sergio/i;
 
-    if (voice) utterance.voice = voice;
-    window.speechSynthesis.speak(utterance);
+      let voice = voices.find(v => {
+        const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
+        return isLangMatch && genderRegex.test(v.name);
+      }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
+
+      if (voice) {
+        utterance.voice = voice;
+        utterance.onerror = (e) => {
+          fallbackToElevenLabsReplay();
+        };
+        window.speechSynthesis.speak(utterance);
+        return;
+      }
+    }
+
+    // 2. Fallback ElevenLabs
+    fallbackToElevenLabsReplay();
+
+    async function fallbackToElevenLabsReplay() {
+      try {
+        const response = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, gender, langCode })
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          currentAudioRef.current = audio;
+          
+          audio.onended = () => URL.revokeObjectURL(url);
+          audio.onerror = () => URL.revokeObjectURL(url);
+          
+          await audio.play();
+        }
+      } catch (err) {
+        console.warn('[SoftIA Voice] Fallo replay ElevenLabs:', err);
+      }
+    }
   }, []);
 
   /**
@@ -578,7 +596,16 @@ export function useConversacion() {
     try {
       let translatedText = "";
 
-      if (aiEngineModeRef.current === 'gemini') {
+      // Prioridad: 1. Local On-Device -> 2. Gemini (Fallback)
+      try {
+        console.log("[SoftIA Translation] Intentando traducción Local (On-Device)...");
+        translatedText = await translateOnDevice(text, fromLang, toLang, workerRef.current);
+        
+        if (!translatedText) throw new Error("Local Translation devolvió vacío");
+      } catch (localError) {
+        console.warn("[SoftIA Translation] Fallo Local, usando Gemini de respaldo:", localError);
+        
+        // Fallback a Gemini
         if (!isGuestRef.current && userCreditsRef.current <= 0) {
           setIsProfileOpen(true);
           toast({ title: "Créditos Agotados", variant: "destructive" });
@@ -589,11 +616,6 @@ export function useConversacion() {
         if (!isGuestRef.current) addCredits(-1);
         const result = await translateConversation({ text, fromLanguage: fromLang, toLanguage: toLang });
         translatedText = result.translatedText;
-      } else if (aiEngineModeRef.current === 'deepseek') {
-        const result = await callDeepSeekBackup(text, fromLang, toLang);
-        translatedText = result.translatedText;
-      } else {
-        translatedText = await translateOnDevice(text, fromLang, toLang, workerRef.current);
       }
 
       // Persistir en el store (localStorage) en lugar de solo en memoria
@@ -655,6 +677,36 @@ export function useConversacion() {
       startListening();
     }
   }, [startListening]);
+
+  /**
+   * Cancela la grabación actual SIN traducirla.
+   */
+  const cancelRecording = useCallback(() => {
+    if (isRecordingRef.current) {
+      isRecordingRef.current = false;
+      stopRecordingTimer();
+      
+      if (recognitionRef.current) {
+        try {
+          // Usar abort() en lugar de stop() cancela sin lanzar onresult (si es posible)
+          recognitionRef.current.abort(); 
+        } catch (err) {}
+        recognitionRef.current = null;
+      }
+      setIsRecording(false);
+      stopAudioAnalyzer();
+
+      // Vaciar todos los buffers para que no haya nada que traducir
+      setLiveTranscript('');
+      globalAccumulatedTranscriptRef.current = '';
+      sessionFinalTranscriptRef.current = '';
+      currentTranscriptRef.current = '';
+      
+      if (stopDelayTimerRef.current) {
+        clearTimeout(stopDelayTimerRef.current);
+      }
+    }
+  }, []);
 
   /**
    * Cambia el turno de forma manual y limpia grabaciones activas.
@@ -724,6 +776,6 @@ export function useConversacion() {
     setNativeLanguage, setTargetLanguage, setNativeName, setTargetName,
     userVoiceGender, partnerVoiceGender, setUserVoiceGender, setPartnerVoiceGender,
     liveTranscript, recordingTime,
-    saveAndClearConversation, clearConversation, replayAudio
+    saveAndClearConversation, clearConversation, replayAudio, cancelRecording
   };
 }

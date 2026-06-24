@@ -2,7 +2,7 @@
 
 import { useConversacion, getLocalizedLabels } from './use-conversacion';
 import {
-  Mic, MicOff, Camera, CameraOff, User, Users, Sparkles, Globe, Settings2, Sparkle, History, MessageSquare, Trash2, Volume2
+  Mic, MicOff, Camera, CameraOff, User, Users, Sparkles, Globe, Settings2, Sparkle, History, MessageSquare, Trash2, Volume2, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -455,33 +455,54 @@ export function ConversacionMobile() {
             )}
           </AnimatePresence>
           
-          <motion.div whileTap={{ scale: 0.9 }}>
-            <Button
-              onClick={logic.toggleSession}
-              disabled={logic.isProcessing || logic.isSpeaking || logic.isPreparingMic}
-              className={cn(
-                "h-20 w-20 rounded-full transition-all duration-300 flex items-center justify-center shadow-2xl relative overflow-hidden",
-                logic.isRecording 
-                  ? "bg-red-500 hover:bg-red-400 scale-95 shadow-neon-emerald" 
-                  : logic.isSpeaking
-                  ? "bg-primary/30 border border-primary/40"
-                  : "bg-white hover:bg-white/90 text-black shadow-[0_0_40px_rgba(255,255,255,0.2)]"
-              )}
-            >
+          <div className="flex items-center justify-center gap-4">
+            <AnimatePresence>
               {logic.isRecording && (
-                <div className="absolute inset-0 bg-red-400/50 animate-ping rounded-full z-0" />
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.5, x: 20 }} 
+                  animate={{ opacity: 1, scale: 1, x: 0 }} 
+                  exit={{ opacity: 0, scale: 0.5, x: 20 }} 
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <Button
+                    onClick={logic.cancelRecording}
+                    variant="ghost"
+                    className="h-14 w-14 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all shadow-[0_0_20px_rgba(239,68,68,0.15)] backdrop-blur-md"
+                  >
+                    <X className="w-6 h-6" />
+                  </Button>
+                </motion.div>
               )}
-              {logic.isSpeaking && (
-                <div className="absolute inset-0 bg-primary/20 animate-pulse rounded-full z-0" />
-              )}
-              <div className="relative z-10">
-                {logic.isProcessing ? <Sparkle className="w-8 h-8 animate-spin" /> 
-                  : logic.isSpeaking ? <Sparkle className="w-8 h-8 text-primary animate-pulse" />
-                  : logic.isRecording ? <MicOff className="w-8 h-8 text-white" /> 
-                  : <Mic className="w-8 h-8" />}
-              </div>
-            </Button>
-          </motion.div>
+            </AnimatePresence>
+
+            <motion.div whileTap={{ scale: 0.9 }}>
+              <Button
+                onClick={logic.toggleSession}
+                disabled={logic.isProcessing || logic.isSpeaking || logic.isPreparingMic}
+                className={cn(
+                  "h-20 w-20 rounded-full transition-all duration-300 flex items-center justify-center shadow-2xl relative overflow-hidden",
+                  logic.isRecording 
+                    ? "bg-emerald-500 hover:bg-emerald-400 scale-95 shadow-neon-emerald" 
+                    : logic.isSpeaking
+                    ? "bg-primary/30 border border-primary/40"
+                    : "bg-white hover:bg-white/90 text-black shadow-[0_0_40px_rgba(255,255,255,0.2)]"
+                )}
+              >
+                {logic.isRecording && (
+                  <div className="absolute inset-0 bg-emerald-400/50 animate-ping rounded-full z-0" />
+                )}
+                {logic.isSpeaking && (
+                  <div className="absolute inset-0 bg-primary/20 animate-pulse rounded-full z-0" />
+                )}
+                <div className="relative z-10 flex flex-col items-center">
+                  {logic.isProcessing ? <Sparkle className="w-8 h-8 animate-spin" /> 
+                    : logic.isSpeaking ? <Sparkle className="w-8 h-8 text-primary animate-pulse" />
+                    : logic.isRecording ? <span className="text-[10px] font-black tracking-widest text-white mt-1">OK</span>
+                    : <Mic className="w-8 h-8" />}
+                </div>
+              </Button>
+            </motion.div>
+          </div>
         </div>
       </div>
 

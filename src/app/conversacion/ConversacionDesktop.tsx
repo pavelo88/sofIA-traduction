@@ -3,7 +3,7 @@
 import { useConversacion, getLocalizedLabels } from './use-conversacion';
 import { 
   Mic, MicOff, Camera, CameraOff, History, Sparkles, User, Users,
-  Wifi, ArrowUpDown, Volume2, Trash2, RotateCw, Settings2, Sparkle, MessageSquare
+  Wifi, ArrowUpDown, Volume2, Trash2, RotateCw, Settings2, Sparkle, MessageSquare, X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -520,6 +520,26 @@ export function ConversacionDesktop() {
             </motion.div>
           )}
 
+          <div className="flex items-center gap-4 relative z-10 justify-center">
+            <AnimatePresence>
+              {logic.isRecording && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.5, x: 20 }} 
+                  animate={{ opacity: 1, scale: 1, x: 0 }} 
+                  exit={{ opacity: 0, scale: 0.5, x: 20 }} 
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button
+                    onClick={logic.cancelRecording}
+                    variant="ghost"
+                    className="h-16 w-16 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-all shadow-[0_0_20px_rgba(239,68,68,0.15)] backdrop-blur-md"
+                  >
+                    <X className="w-6 h-6" />
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
           <motion.div whileTap={{ scale: 0.95 }}>
             <Button
               onClick={logic.toggleSession}
@@ -527,26 +547,27 @@ export function ConversacionDesktop() {
               className={cn(
                 "h-28 w-28 rounded-full transition-all duration-300 flex flex-col items-center justify-center border-4 border-transparent shadow-2xl relative gap-2 font-headline uppercase tracking-widest text-xs font-bold",
                 logic.isRecording 
-                  ? "bg-red-500 hover:bg-red-400 scale-95 border-red-500/20 shadow-neon-emerald text-white" 
+                  ? "bg-emerald-500 hover:bg-emerald-400 scale-95 border-emerald-500/20 shadow-neon-emerald text-white" 
                   : logic.isSpeaking
                   ? "bg-primary/30 border border-primary/40 text-primary cursor-not-allowed"
                   : "bg-white text-black hover:bg-white/90 shadow-xl shadow-white/10"
               )}
             >
               {logic.isRecording && (
-                <div className="absolute inset-0 bg-red-400/50 animate-ping rounded-full z-0" />
+                <div className="absolute inset-0 bg-emerald-400/50 animate-ping rounded-full z-0" />
               )}
                 {logic.isProcessing ? (
                   <Sparkles className="w-8 h-8 animate-spin" />
                 ) : logic.isSpeaking ? (
                   <><Volume2 className="w-8 h-8 animate-pulse" /> IA</>
                 ) : logic.isRecording ? (
-                  <><MicOff className="w-5 h-5" /> Detener</>
+                  <><MicOff className="w-5 h-5" /> OK</>
                 ) : (
                   <><Mic className="w-5 h-5" /> Grabar Voz</>
                 )}
               </Button>
             </motion.div>
+          </div>
           </div>
 
           <div className="flex items-center gap-4 relative z-10">
