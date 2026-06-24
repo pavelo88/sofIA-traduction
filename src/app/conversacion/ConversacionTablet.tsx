@@ -172,9 +172,7 @@ export function ConversacionTablet() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const textToPlay = item.from === logic.nativeLanguage ? item.original : item.translated;
-                                const langName = item.from === logic.nativeLanguage ? logic.nativeLanguage : logic.targetLanguage;
-                                const genderToUse = item.from === logic.nativeLanguage ? logic.userVoiceGender : logic.partnerVoiceGender;
-                                logic.replayAudio(textToPlay, langName, genderToUse);
+                                logic.replayAudio(textToPlay, logic.nativeLanguage, logic.userVoiceGender);
                               }}
                               className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
                             >
@@ -189,9 +187,7 @@ export function ConversacionTablet() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const textToPlay = item.from === logic.nativeLanguage ? item.translated : item.original;
-                                const langName = item.from === logic.nativeLanguage ? logic.targetLanguage : logic.nativeLanguage;
-                                const genderToUse = item.from === logic.nativeLanguage ? logic.partnerVoiceGender : logic.userVoiceGender;
-                                logic.replayAudio(textToPlay, langName, genderToUse);
+                                logic.replayAudio(textToPlay, logic.targetLanguage, logic.partnerVoiceGender);
                               }}
                               className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
                             >
@@ -323,9 +319,7 @@ export function ConversacionTablet() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const textToPlay = item.from === logic.targetLanguage ? item.original : item.translated;
-                                const langName = item.from === logic.targetLanguage ? logic.targetLanguage : logic.nativeLanguage;
-                                const genderToUse = item.from === logic.targetLanguage ? logic.partnerVoiceGender : logic.userVoiceGender;
-                                logic.replayAudio(textToPlay, langName, genderToUse);
+                                logic.replayAudio(textToPlay, logic.targetLanguage, logic.partnerVoiceGender);
                               }}
                               className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
                             >
@@ -340,9 +334,7 @@ export function ConversacionTablet() {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const textToPlay = item.from === logic.targetLanguage ? item.translated : item.original;
-                                const langName = item.from === logic.targetLanguage ? logic.nativeLanguage : logic.targetLanguage;
-                                const genderToUse = item.from === logic.targetLanguage ? logic.userVoiceGender : logic.partnerVoiceGender;
-                                logic.replayAudio(textToPlay, langName, genderToUse);
+                                logic.replayAudio(textToPlay, logic.nativeLanguage, logic.userVoiceGender);
                               }}
                               className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
                             >

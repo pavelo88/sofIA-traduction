@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SoftIA Traduction</string>
+    <string name="title_activity_main">SoftIA Traduction</string>
+    <string name="package_name">com.softia.traduction</string>
+    <string name="custom_url_scheme">com.softia.traduction</string>
+</resources>

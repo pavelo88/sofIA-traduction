@@ -158,9 +158,7 @@ export function ConversacionMobile() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const textToPlay = item.from === logic.nativeLanguage ? item.original : item.translated;
-                                  const langName = item.from === logic.nativeLanguage ? logic.nativeLanguage : logic.targetLanguage;
-                                  const genderToUse = item.from === logic.nativeLanguage ? logic.userVoiceGender : logic.partnerVoiceGender;
-                                  logic.replayAudio(textToPlay, langName, genderToUse);
+                                  logic.replayAudio(textToPlay, logic.nativeLanguage, logic.userVoiceGender);
                                 }}
                                 className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
                               >
@@ -175,9 +173,7 @@ export function ConversacionMobile() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const textToPlay = item.from === logic.nativeLanguage ? item.translated : item.original;
-                                  const langName = item.from === logic.nativeLanguage ? logic.targetLanguage : logic.nativeLanguage;
-                                  const genderToUse = item.from === logic.nativeLanguage ? logic.partnerVoiceGender : logic.userVoiceGender;
-                                  logic.replayAudio(textToPlay, langName, genderToUse);
+                                  logic.replayAudio(textToPlay, logic.targetLanguage, logic.partnerVoiceGender);
                                 }}
                                 className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
                               >
@@ -318,14 +314,38 @@ export function ConversacionMobile() {
                           <span className={cn("text-[9px] uppercase tracking-wider mb-1 px-1 font-bold", isSelf ? "text-secondary/70" : "text-white/40")}>
                             {isSelf ? logic.targetName : logic.nativeName}
                           </span>
-                          <div className={cn("p-3 rounded-2xl shadow-lg", isSelf ? "bg-secondary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
-                            <p className="text-sm font-medium leading-relaxed">
+                          <div className={cn("p-3 rounded-2xl shadow-lg group relative", isSelf ? "bg-secondary/90 text-white rounded-tr-sm" : "bg-white/10 text-white rounded-tl-sm")}>
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium leading-relaxed pr-2">
                               {item.from === logic.targetLanguage ? item.original : item.translated}
                             </p>
-                            <p className="text-xs opacity-70 mt-1 italic border-t border-white/20 pt-1">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const textToPlay = item.from === logic.targetLanguage ? item.original : item.translated;
+                                logic.replayAudio(textToPlay, logic.targetLanguage, logic.partnerVoiceGender);
+                              }}
+                              className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
+                            >
+                              <Volume2 className="w-3.5 h-3.5 opacity-80" />
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between mt-1 pt-1 border-t border-white/20">
+                            <p className="text-xs opacity-70 italic pr-2">
                               {item.from === logic.targetLanguage ? item.translated : item.original}
                             </p>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const textToPlay = item.from === logic.targetLanguage ? item.translated : item.original;
+                                logic.replayAudio(textToPlay, logic.nativeLanguage, logic.userVoiceGender);
+                              }}
+                              className="p-1.5 rounded-full hover:bg-white/20 transition-colors flex-shrink-0"
+                            >
+                              <Volume2 className="w-3.5 h-3.5 opacity-80" />
+                            </button>
                           </div>
+                        </div>
                         </div>
                       );
                     })
