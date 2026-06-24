@@ -71,14 +71,14 @@ export function ConversacionDesktop() {
       <main className="col-span-8 flex flex-col gap-6 h-full min-h-0">
         
         {/* PANEL DUAL DE DIÁLOGO DINÁMICO */}
-        <div className="flex-1 flex flex-col gap-6 min-h-0">
+        <div className="flex-1 flex flex-row gap-6 min-h-0">
           
           {/* PANEL DE USUARIO LOCAL */}
           <motion.div 
             layout
             onClick={() => logic.isNativeTurn || logic.toggleTurn()}
             animate={{
-              flex: logic.isNativeTurn ? "1 1 auto" : "0 0 100px",
+              flex: "1 1 50%",
               opacity: logic.isNativeTurn ? 1 : 0.6,
               scale: logic.isNativeTurn ? 1 : 0.98,
             }}
@@ -271,7 +271,7 @@ export function ConversacionDesktop() {
             layout
             onClick={() => !logic.isNativeTurn || logic.toggleTurn()}
             animate={{
-              flex: !logic.isNativeTurn ? "1 1 auto" : "0 0 100px",
+              flex: "1 1 50%",
               opacity: !logic.isNativeTurn ? 1 : 0.6,
               scale: !logic.isNativeTurn ? 1 : 0.98,
             }}

@@ -433,81 +433,85 @@ export function useConversacion() {
 
     const langCode = langMap[langName] || 'en-US';
 
-    // 1. Intentar Voz Nativa Primero (Prioridad Local)
-    if (window.speechSynthesis) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = langCode;
-      utterance.rate = 0.95;
-
-      const voices = window.speechSynthesis.getVoices();
-      const genderRegex = targetGender === 'femenino'
-        ? /female|woman|zira|samantha|helena|laura|google/i
-        : /male|man|david|mark|pablo|sergio/i;
-
-      let voice = voices.find(v => {
-        const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
-        return isLangMatch && genderRegex.test(v.name);
-      }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
-
-      if (voice) {
-        utterance.voice = voice;
-        utterance.onend = finishSpeaking;
-        utterance.onerror = (e) => {
-          console.warn("[SoftIA Voice] Error nativo, intentando ElevenLabs", e);
-          fallbackToElevenLabs();
-        };
-        window.speechSynthesis.speak(utterance);
+    // 1. Intentar ElevenLabs API Route primero (Prioridad Cloud)
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, gender: targetGender, langCode })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        currentAudioRef.current = audio;
         
-        // Polling para Android
-        const pollInterval = setInterval(() => {
-          if (!window.speechSynthesis.speaking && isSpeakingRef.current) {
-             clearInterval(pollInterval);
-             finishSpeaking();
-          } else if (!isSpeakingRef.current) {
-             clearInterval(pollInterval);
-          }
-        }, 1000);
-        return;
-      }
-    }
-
-    // 2. Si no hay voces nativas o falla, intentar ElevenLabs (Fallback)
-    fallbackToElevenLabs();
-
-    async function fallbackToElevenLabs() {
-      try {
-        const response = await fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, gender: targetGender, langCode })
-        });
-        
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          currentAudioRef.current = audio;
-          
-          audio.onended = () => {
-            URL.revokeObjectURL(url);
-            currentAudioRef.current = null;
-            finishSpeaking();
-          };
-          audio.onerror = () => {
-            URL.revokeObjectURL(url);
-            currentAudioRef.current = null;
-            finishSpeaking();
-          };
-          
-          await audio.play();
-        } else {
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          currentAudioRef.current = null;
           finishSpeaking();
-        }
-      } catch (err) {
-        console.warn('[SoftIA Voice] Fallo absoluto de TTS:', err);
-        finishSpeaking();
+        };
+        audio.onerror = () => {
+          URL.revokeObjectURL(url);
+          currentAudioRef.current = null;
+          finishSpeaking();
+        };
+        
+        await audio.play();
+        return; // Éxito con ElevenLabs, salir temprano
       }
+    } catch (err) {
+      console.warn('[SoftIA Voice] Fallo ElevenLabs, usando voz del navegador:', err);
     }
+
+    // 2. FALLBACK: Voz Nativa
+    if (!window.speechSynthesis) {
+      finishSpeaking();
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langCode;
+    utterance.rate = 0.95;
+
+    const voices = window.speechSynthesis.getVoices();
+    const genderRegex = targetGender === 'femenino'
+      ? /female|woman|zira|samantha|helena|laura|google/i
+      : /male|man|david|mark|pablo|sergio/i;
+
+    let voice = voices.find(v => {
+      const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
+      return isLangMatch && genderRegex.test(v.name);
+    }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
+
+    if (voice) {
+      utterance.voice = voice;
+    }
+
+    let fallbackTimeout: NodeJS.Timeout;
+    const fallbackFinishSpeaking = () => {
+      if (fallbackTimeout) clearTimeout(fallbackTimeout);
+      finishSpeaking();
+    };
+
+    utterance.onend = fallbackFinishSpeaking;
+    utterance.onerror = fallbackFinishSpeaking;
+
+    window.speechSynthesis.speak(utterance);
+    
+    fallbackTimeout = setTimeout(() => {
+       fallbackFinishSpeaking();
+    }, 30000);
+
+    const pollInterval = setInterval(() => {
+      if (!window.speechSynthesis.speaking && isSpeakingRef.current) {
+         clearInterval(pollInterval);
+         fallbackFinishSpeaking();
+      } else if (!isSpeakingRef.current) {
+         clearInterval(pollInterval);
+      }
+    }, 1000);
   }, [partnerVoiceGender, userVoiceGender]);
 
   /**
@@ -527,58 +531,49 @@ export function useConversacion() {
 
     const langCode = langMap[langName] || 'en-US';
 
-    // 1. Intentar Voz Nativa Primero
-    if (window.speechSynthesis) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = langCode;
-      utterance.rate = 0.95;
-
-      const voices = window.speechSynthesis.getVoices();
-      const genderRegex = gender === 'femenino'
-        ? /female|woman|zira|samantha|helena|laura|google/i
-        : /male|man|david|mark|pablo|sergio/i;
-
-      let voice = voices.find(v => {
-        const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
-        return isLangMatch && genderRegex.test(v.name);
-      }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
-
-      if (voice) {
-        utterance.voice = voice;
-        utterance.onerror = (e) => {
-          fallbackToElevenLabsReplay();
-        };
-        window.speechSynthesis.speak(utterance);
-        return;
-      }
-    }
-
-    // 2. Fallback ElevenLabs
-    fallbackToElevenLabsReplay();
-
-    async function fallbackToElevenLabsReplay() {
-      try {
-        const response = await fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, gender, langCode })
-        });
+    // 1. Intentar ElevenLabs API Route primero
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, gender, langCode })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        currentAudioRef.current = audio;
         
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          currentAudioRef.current = audio;
-          
-          audio.onended = () => URL.revokeObjectURL(url);
-          audio.onerror = () => URL.revokeObjectURL(url);
-          
-          await audio.play();
-        }
-      } catch (err) {
-        console.warn('[SoftIA Voice] Fallo replay ElevenLabs:', err);
+        audio.onended = () => { URL.revokeObjectURL(url); currentAudioRef.current = null; };
+        audio.onerror = () => { URL.revokeObjectURL(url); currentAudioRef.current = null; };
+        
+        await audio.play();
+        return; // Éxito con ElevenLabs
       }
+    } catch (err) {
+      console.warn('[SoftIA Voice] Fallo replay ElevenLabs, usando fallback:', err);
     }
+
+    if (!window.speechSynthesis) return;
+
+    // 2. Fallback: Voz Nativa
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langCode;
+    utterance.rate = 0.95;
+
+    const voices = window.speechSynthesis.getVoices();
+    const genderRegex = gender === 'femenino'
+      ? /female|woman|zira|samantha|helena|laura|google/i
+      : /male|man|david|mark|pablo|sergio/i;
+
+    const voice = voices.find(v => {
+      const isLangMatch = v.lang.startsWith(langCode.split('-')[0]);
+      return isLangMatch && genderRegex.test(v.name);
+    }) || voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
+
+    if (voice) utterance.voice = voice;
+    window.speechSynthesis.speak(utterance);
   }, []);
 
   /**
@@ -596,16 +591,8 @@ export function useConversacion() {
     try {
       let translatedText = "";
 
-      // Prioridad: 1. Local On-Device -> 2. Gemini (Fallback)
+      // Prioridad: 1. Gemini (Cloud) -> 2. Local On-Device (Fallback)
       try {
-        console.log("[SoftIA Translation] Intentando traducción Local (On-Device)...");
-        translatedText = await translateOnDevice(text, fromLang, toLang, workerRef.current);
-        
-        if (!translatedText) throw new Error("Local Translation devolvió vacío");
-      } catch (localError) {
-        console.warn("[SoftIA Translation] Fallo Local, usando Gemini de respaldo:", localError);
-        
-        // Fallback a Gemini
         if (!isGuestRef.current && userCreditsRef.current <= 0) {
           setIsProfileOpen(true);
           toast({ title: "Créditos Agotados", variant: "destructive" });
@@ -613,9 +600,16 @@ export function useConversacion() {
           isProcessingRef.current = false;
           return;
         }
-        if (!isGuestRef.current) addCredits(-1);
+        console.log("[SoftIA Translation] Usando Gemini...");
         const result = await translateConversation({ text, fromLanguage: fromLang, toLanguage: toLang });
+        if (!result || !result.translatedText) throw new Error("Gemini falló");
+        
         translatedText = result.translatedText;
+        if (!isGuestRef.current) addCredits(-1);
+      } catch (geminiError) {
+        console.warn("[SoftIA Translation] Fallo Gemini, usando Motor Local de respaldo:", geminiError);
+        
+        translatedText = await translateOnDevice(text, fromLang, toLang, workerRef.current);
       }
 
       // Persistir en el store (localStorage) en lugar de solo en memoria

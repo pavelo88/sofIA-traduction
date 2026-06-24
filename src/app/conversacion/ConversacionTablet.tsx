@@ -404,7 +404,7 @@ export function ConversacionTablet() {
       </div>
 
       {/* PANEL DE CONTROL TABLET REFACTORIZADO */}
-      <div className="fixed bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-6">
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-50 w-[90%] max-w-2xl">
         
         <AnimatePresence mode="wait">
           <motion.div 
@@ -449,7 +449,7 @@ export function ConversacionTablet() {
           </motion.div>
         )}
 
-        <div className="flex items-center gap-10 glass-panel p-4 rounded-full border-white/10 bg-white/[0.02] shadow-2xl">
+        <div className="flex items-center justify-center gap-6 glass-panel p-4 rounded-[2rem] border-white/10 bg-black/60 shadow-2xl w-full backdrop-blur-3xl">
           <Button
             onClick={() => logic.setIsCameraActive(!logic.isCameraActive)}
             className={cn("h-16 w-16 rounded-full border transition-colors", logic.isCameraActive ? "bg-primary/20 text-primary border-primary/30" : "bg-white/5 text-white/40 border-white/10")}

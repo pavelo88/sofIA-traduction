@@ -10,11 +10,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'ElevenLabs API Key no configurada.' }, { status: 501 });
     }
 
-    // Mapeo básico de voces gratuitas/públicas de ElevenLabs para simular géneros
-    // Estas son IDs de voces predeterminadas de ElevenLabs (Rachel=female, Adam=male)
-    const voiceId = gender === 'femenino' 
-      ? '21m00Tcm4TlvDq8ikWAM' // Rachel (Female, English/Multilingual)
-      : 'pNInz6obpgDQGcFmaJgB'; // Adam (Male, English/Multilingual)
+    // Mapeo inteligente de voces según Idioma y Género para evitar "acentos extranjeros"
+    const langPrefix = langCode ? langCode.split('-')[0].toLowerCase() : 'en';
+    
+    let voiceId = '21m00Tcm4TlvDq8ikWAM'; // Rachel por defecto
+
+    if (langPrefix === 'es') {
+      // Español: Matilda (Femenino), Fin/Will (Masculino)
+      voiceId = gender === 'femenino' ? 'XrExE9yKIg1WjnnlVkGX' : 'bIHbv24MWmeRgasZH58o';
+    } else if (langPrefix === 'fr') {
+      // Francés: Sarah (Femenino), Charlie (Masculino)
+      voiceId = gender === 'femenino' ? 'EXAVITQu4vr4xnSDxMaL' : 'TX3OmfOUA23vzw21b7zU';
+    } else if (langPrefix === 'de' || langPrefix === 'it' || langPrefix === 'pt') {
+      // Alemán, Italiano, Portugués: Mimi (Femenino), Callum (Masculino)
+      voiceId = gender === 'femenino' ? 'zrHiDhphv9ZnVBTuAHu6' : 'N2lVS1w4EtoT3dr4eOWO';
+    } else {
+      // Inglés y otros: Rachel (Femenino), Adam (Masculino)
+      voiceId = gender === 'femenino' ? '21m00Tcm4TlvDq8ikWAM' : 'pNInz6obpgDQGcFmaJgB';
+    }
 
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
 
