@@ -444,23 +444,6 @@ export function ConversacionDesktop() {
           </div>
 
           <div className="flex items-center gap-4 relative z-10">
-            {/* VISOR DE AUDIO ESTILO WHATSAPP */}
-            {logic.isRecording && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="flex items-end justify-center gap-[3px] h-9 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary"
-              >
-                {logic.audioLevels.map((level, i) => (
-                  <div 
-                    key={i} 
-                    className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
-                    style={{ height: `${level}%` }}
-                  />
-                ))}
-              </motion.div>
-            )}
 
             <motion.div whileTap={{ scale: 0.95 }}>
               <Button

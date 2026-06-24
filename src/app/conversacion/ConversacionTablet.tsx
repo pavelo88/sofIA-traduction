@@ -365,18 +365,6 @@ export function ConversacionTablet() {
             
             <div className="w-px h-6 bg-white/20"></div>
             
-            <div className="flex items-end justify-center gap-[3px] h-6">
-              {logic.audioLevels.map((level, i) => (
-                <div 
-                  key={i} 
-                  className="w-[3px] bg-rose-500 rounded-full transition-all duration-75"
-                  style={{ height: `${level}%` }}
-                />
-              ))}
-            </div>
-
-            <div className="w-px h-6 bg-white/20"></div>
-
             <div className="flex flex-col items-center">
               <span className="text-[8px] text-white/50 uppercase tracking-widest font-bold">Restante</span>
               <span className="text-white font-mono text-sm font-bold">{formatTime(120 - logic.recordingTime)}</span>

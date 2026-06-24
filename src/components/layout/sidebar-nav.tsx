@@ -2,17 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Camera, BookOpen, Mic2, MessageSquare, Search, Sparkles } from 'lucide-react';
+import { Home, Camera, BookOpen, Mic2, MessageSquare, User, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CatGlassIcon } from '@/components/ui/cat-glass-icon';
 import { ProfileModal } from '@/components/ProfileModal';
 
 const navItems = [
-  { name: 'Inicio', href: '/', icon: Home },
+  { name: 'Conversación', href: '/', icon: Mic2 },
   { name: 'Lente AR', href: '/lens', icon: Camera },
-  { name: 'Lectura', href: '/reading', icon: BookOpen },
-  { name: 'Conversación', href: '/conversacion', icon: Mic2 },
-  { name: 'Tutor Kitten', href: '/chat', icon: MessageSquare },
+  { name: 'Documentos', href: '/documents', icon: BookOpen },
+  { name: 'Amigo SoftIA', href: '/chat', icon: MessageSquare },
 ];
 
 export function SidebarNav() {
@@ -79,7 +78,7 @@ export function SidebarNav() {
 
             <ProfileModal>
               <button className="p-3 rounded-2xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all duration-300 squish-effect flex items-center justify-center">
-                <Search className="w-4 h-4" />
+                <User className="w-4 h-4" />
               </button>
             </ProfileModal>
           </div>

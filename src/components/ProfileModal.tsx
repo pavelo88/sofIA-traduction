@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { useStore } from '@/lib/store';
@@ -80,6 +81,7 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SavedSession | null>(null);
+  const [selectedHistoryCategory, setSelectedHistoryCategory] = useState<string | null>(null);
 
   const handleUpdate = async (field: string, value: any) => {
     console.log(`[Firebase Bypass] Suppressed profile write for ${field}:`, value);
@@ -211,45 +213,31 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
                 <History className="w-3 h-3" /> Memoria Histórica
               </h3>
               
-              <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                {/* Agrupador Chat */}
-                {savedSessions.filter(s => s.type === 'chat').length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-[9px] uppercase tracking-widest text-primary/70">Kitten Chat</h4>
-                    {savedSessions.filter(s => s.type === 'chat').map(session => (
-                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
-                    ))}
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                {savedSessions.some(s => s.type === 'chat') && (
+                  <Button variant="outline" onClick={() => setSelectedHistoryCategory('chat')} className="h-12 bg-white/5 border-white/10 hover:bg-white/10 rounded-xl text-xs text-white/80">
+                    Amigo SoftIA
+                  </Button>
                 )}
-
-                {/* Agrupador Conversacion */}
-                {savedSessions.filter(s => s.type === 'conversacion').length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-[9px] uppercase tracking-widest text-emerald-400/70">Conversación Dual</h4>
-                    {savedSessions.filter(s => s.type === 'conversacion').map(session => (
-                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
-                    ))}
-                  </div>
+                {savedSessions.some(s => s.type === 'conversacion') && (
+                  <Button variant="outline" onClick={() => setSelectedHistoryCategory('conversacion')} className="h-12 bg-white/5 border-white/10 hover:bg-white/10 rounded-xl text-xs text-white/80">
+                    Conversación Dual
+                  </Button>
                 )}
-
-                {/* Agrupador Lectura */}
-                {savedSessions.filter(s => s.type === 'lectura').length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-[9px] uppercase tracking-widest text-secondary/70">Lectura</h4>
-                    {savedSessions.filter(s => s.type === 'lectura').map(session => (
-                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
-                    ))}
-                  </div>
+                {savedSessions.some(s => s.type === 'lente') && (
+                  <Button variant="outline" onClick={() => setSelectedHistoryCategory('lente')} className="h-12 bg-white/5 border-white/10 hover:bg-white/10 rounded-xl text-xs text-white/80">
+                    Lente AR
+                  </Button>
                 )}
-
-                {/* Agrupador Lente */}
-                {savedSessions.filter(s => s.type === 'lente').length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-[9px] uppercase tracking-widest text-purple-400/70">Lente AR</h4>
-                    {savedSessions.filter(s => s.type === 'lente').map(session => (
-                      <SessionItem key={session.id} session={session} onClick={() => setSelectedSession(session)} onDelete={(e) => { e.stopPropagation(); deleteSession(session.id); }} />
-                    ))}
-                  </div>
+                {savedSessions.some(s => s.type === 'lectura') && (
+                  <Button variant="outline" onClick={() => setSelectedHistoryCategory('lectura')} className="h-12 bg-white/5 border-white/10 hover:bg-white/10 rounded-xl text-xs text-white/80">
+                    Lectura
+                  </Button>
+                )}
+                {savedSessions.some(s => s.type === 'documentos') && (
+                  <Button variant="outline" onClick={() => setSelectedHistoryCategory('documentos')} className="h-12 bg-white/5 border-white/10 hover:bg-white/10 rounded-xl text-xs text-white/80">
+                    Documentos
+                  </Button>
                 )}
               </div>
             </div>
@@ -271,7 +259,7 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
 
       {/* Session Details Popup */}
       <Dialog open={!!selectedSession} onOpenChange={(open) => !open && setSelectedSession(null)}>
-        <DialogContent className="glass-panel border-white/10 bg-zinc-950/95 backdrop-blur-3xl text-white rounded-[2.5rem] max-w-sm p-6 overflow-hidden">
+        <DialogContent className="glass-panel border-white/10 bg-zinc-950/95 backdrop-blur-3xl text-white rounded-[2.5rem] max-w-sm p-6 overflow-hidden z-[60]">
           <DialogHeader>
             <DialogTitle className="font-headline text-xl text-primary">{selectedSession?.name}</DialogTitle>
             <DialogDescription className="text-xs text-white/40">
@@ -315,6 +303,18 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
                 <p className="text-xl font-headline text-white">&rarr; {selectedSession.data.translated}</p>
               </div>
             )}
+            {selectedSession?.type === 'documentos' && (
+              <div className="space-y-4">
+                <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+                  <p className="text-[10px] text-white/40 mb-1">Documento Original</p>
+                  <p className="text-xs font-bold text-white whitespace-pre-wrap line-clamp-4">{selectedSession.data.original}</p>
+                </div>
+                <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20">
+                  <p className="text-[10px] text-primary/60 mb-1">Traducción</p>
+                  <p className="text-xs font-bold text-white whitespace-pre-wrap line-clamp-4">{selectedSession.data.translated}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex gap-3 pt-4">
             <Button onClick={() => setSelectedSession(null)} variant="outline" className="flex-1 rounded-xl bg-white/5 border-white/10 hover:bg-white/10">
@@ -322,6 +322,49 @@ export function ProfileModal({ children }: { children?: React.ReactNode }) {
             </Button>
             <Button onClick={() => selectedSession && handleLoadSession(selectedSession)} className="flex-1 rounded-xl bg-primary hover:bg-primary/90 shadow-neon-primary text-white font-bold">
               Ir a Módulo
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category List Popup */}
+      <Dialog open={!!selectedHistoryCategory} onOpenChange={(open) => !open && setSelectedHistoryCategory(null)}>
+        <DialogContent className="glass-panel border-white/10 bg-zinc-950/95 backdrop-blur-3xl text-white rounded-[2.5rem] max-w-sm p-6 overflow-hidden z-[50]">
+          <DialogHeader>
+            <DialogTitle className="font-headline text-xl text-primary capitalize flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Historial de {
+                selectedHistoryCategory === 'chat' ? 'Amigo SoftIA' :
+                selectedHistoryCategory === 'conversacion' ? 'Conversación Dual' :
+                selectedHistoryCategory === 'lente' ? 'Lente AR' :
+                selectedHistoryCategory === 'lectura' ? 'Lectura' : 
+                selectedHistoryCategory === 'documentos' ? 'Documentos' : ''
+              }
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 max-h-[50vh] overflow-y-auto custom-scrollbar space-y-2 pr-2">
+            {savedSessions.filter(s => s.type === selectedHistoryCategory).length === 0 ? (
+              <p className="text-sm text-white/40 text-center py-8">No hay historial para esta categoría.</p>
+            ) : (
+              savedSessions.filter(s => s.type === selectedHistoryCategory).map(session => (
+                <SessionItem 
+                  key={session.id} 
+                  session={session} 
+                  onClick={() => setSelectedSession(session)} 
+                  onDelete={(e) => { 
+                    e.stopPropagation(); 
+                    deleteSession(session.id); 
+                    if (savedSessions.filter(s => s.type === selectedHistoryCategory).length <= 1) {
+                      setSelectedHistoryCategory(null);
+                    }
+                  }} 
+                />
+              ))
+            )}
+          </div>
+          <div className="pt-4 border-t border-white/5">
+            <Button onClick={() => setSelectedHistoryCategory(null)} className="w-full rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10">
+              Volver
             </Button>
           </div>
         </DialogContent>

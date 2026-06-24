@@ -14,10 +14,9 @@ import { ProfileModal } from '@/components/ProfileModal';
  * Se han eliminado elementos invasivos para mantener una estética de barra bento limpia.
  */
 const navItems = [
-  { name: 'Inicio', href: '/', icon: Home },
+  { name: 'Hablar', href: '/', icon: Mic2 },
   { name: 'Lente AR', href: '/lens', icon: Camera },
-  { name: 'Lectura', href: '/reading', icon: BookOpen },
-  { name: 'Hablar', href: '/conversacion', icon: Mic2 },
+  { name: 'Documentos', href: '/documents', icon: BookOpen },
 ];
 
 export function BottomNav() {

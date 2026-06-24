@@ -16,7 +16,7 @@ export interface ConversationItem {
   timestamp: string;
 }
 
-export type SessionType = 'chat' | 'conversacion' | 'lectura' | 'lente';
+export type SessionType = 'chat' | 'conversacion' | 'lectura' | 'lente' | 'documentos';
 
 export interface SavedSession {
   id: string;

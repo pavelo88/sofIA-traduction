@@ -14,19 +14,18 @@ import { toast } from '@/hooks/use-toast';
 type Message = {
   role: 'user' | 'model';
   content: string;
-  evaluation?: string;
-  suggestion?: string;
   isHidden?: boolean;
 };
 
 export default function KittenChat() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', content: '¡Hola! Soy Kitten, tu tutor de idiomas. ¿En qué puedo ayudarte hoy?' }
+    { role: 'model', content: '¡Hola! Soy SoftIA, tu tutor de idiomas. ¿En qué puedo ayudarte hoy?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [assistantGender, setAssistantGender] = useState<'masculino' | 'femenino'>('femenino');
   const { nativeLanguage, targetLanguage, conversationHistory } = useStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -77,10 +76,10 @@ export default function KittenChat() {
       return;
     }
 
-    startListeningKitten();
+    startListeningSoftIA();
   };
 
-  const startListeningKitten = () => {
+  const startListeningSoftIA = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const langMapping: Record<string, string> = {
       "Español": "es-ES", "Inglés": "en-US", "Francés": "fr-FR", "Alemán": "de-DE",
@@ -123,7 +122,7 @@ export default function KittenChat() {
       if (isVoiceActiveRef.current) {
         globalAccumulatedTranscriptRef.current = (globalAccumulatedTranscriptRef.current + ' ' + currentTranscriptRef.current).trim();
         currentTranscriptRef.current = '';
-        setTimeout(() => startListeningKitten(), 50);
+        setTimeout(() => startListeningSoftIA(), 50);
         return;
       }
       setIsVoiceActive(false);
@@ -154,27 +153,31 @@ export default function KittenChat() {
       const response = await aiTutorConversation({
         message: finalText,
         chatHistory: history,
+        translatorHistory: conversationHistory,
         nativeLanguage,
         targetLanguage
       });
 
+      if (response.setVoiceGender) {
+        setAssistantGender(response.setVoiceGender);
+      }
+
       const assistantMsg: Message = {
         role: 'model',
         content: response.response,
-        evaluation: response.evaluation,
-        suggestion: response.suggestion
       };
 
       setMessages(prev => [...prev, assistantMsg]);
 
       // TTS para la respuesta del tutor (Mixed Language)
       import('@/lib/voice/mixed-speaker').then(({ speakMixedText }) => {
+        const currentGender = response.setVoiceGender || assistantGender;
         speakMixedText(
           response.response,
           nativeLanguage,
           targetLanguage,
-          'femenino', // Native voice gender (Kitten is female/sweet)
-          'femenino'  // Target voice gender (Kitten is female/sweet)
+          currentGender, // Native voice gender
+          currentGender  // Target voice gender
         );
       });
 
@@ -188,7 +191,7 @@ export default function KittenChat() {
   const handleSummary = () => {
     const historyText = conversationHistory.map(m => `[${m.from}] ${m.original} -> [${m.to}] ${m.translated}`).join('\n');
     const prompt = historyText.length > 0 
-      ? `Por favor analiza las siguientes conversaciones reales que tuve hoy como traductor y genera un resumen pedagógico destacando palabras clave, vocabulario útil y posibles áreas de mejora. Usa un tono animado y amigable, como un lindo gatito tutor.\n\nConversaciones:\n${historyText}`
+      ? `Por favor analiza las siguientes conversaciones reales que tuve hoy como traductor y genera un resumen pedagógico destacando palabras clave, vocabulario útil y posibles áreas de mejora. Usa un tono animado y amigable, como un excelente tutor.\n\nConversaciones:\n${historyText}`
       : `Por favor genera un resumen pedagógico de nuestra charla de hoy en este chat, destacando las palabras clave aprendidas y los errores comunes que debo mejorar. Usa un tono animado y amigable.`;
       
     handleSend(prompt, true);
@@ -201,7 +204,7 @@ export default function KittenChat() {
           <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
             <Star className="text-primary w-5 h-5 fill-primary" />
           </div>
-          SoftIA Kitten Tutor
+          SoftIA Tutor
         </h1>
         <div className="flex items-center gap-4">
           <Button 
@@ -240,20 +243,6 @@ export default function KittenChat() {
                   }`}>
                     {msg.content.replace(/<\/?lang>/g, '')}
                   </div>
-
-                  {msg.evaluation && (
-                    <div className="p-3 bg-primary/10 border border-primary/30 rounded-2xl text-xs space-y-1">
-                      <p className="font-headline text-primary uppercase tracking-tighter text-[10px]">Evaluación</p>
-                      <p className="text-white/80">{msg.evaluation}</p>
-                    </div>
-                  )}
-
-                  {msg.suggestion && (
-                    <div className="p-3 bg-white/5 border border-white/10 rounded-2xl text-xs space-y-1 italic text-muted-foreground">
-                      <p className="font-headline text-white/60 text-[10px]">Sugerencia de Kitten</p>
-                      <p>{msg.suggestion}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
@@ -274,7 +263,7 @@ export default function KittenChat() {
               </div>
             )}
             <Input 
-              placeholder={isVoiceActive ? "Kitten te escucha..." : "Escribe o habla con Kitten..."}
+              placeholder={isVoiceActive ? "SoftIA te escucha..." : "Escribe o habla con SoftIA..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}

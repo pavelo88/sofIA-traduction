@@ -358,37 +358,24 @@ export function ConversacionMobile() {
             </motion.div>
           </AnimatePresence>
 
-          {/* VISOR DE AUDIO Y TEMPORIZADOR */}
-          {logic.isRecording && (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="flex items-center gap-3 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2.5 backdrop-blur-2xl shadow-neon-primary"
-            >
-              <div className="flex flex-col items-center">
-                <span className="text-rose-400 font-mono text-xs font-bold">{formatTime(logic.recordingTime)}</span>
-              </div>
-              
-              <div className="w-px h-6 bg-white/20"></div>
-              
-              <div className="flex items-end justify-center gap-[2px] h-6">
-                {logic.audioLevels.slice(0, 10).map((level, i) => (
-                  <div 
-                    key={i} 
-                    className="w-[2px] bg-rose-500 rounded-full transition-all duration-75"
-                    style={{ height: `${level}%` }}
-                  />
-                ))}
-              </div>
-
-              <div className="w-px h-6 bg-white/20"></div>
-
-              <div className="flex flex-col items-center">
-                <span className="text-white font-mono text-xs font-bold">{formatTime(120 - logic.recordingTime)}</span>
-              </div>
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {logic.isRecording && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="flex items-center gap-4 bg-zinc-900/90 border border-white/10 rounded-full px-5 py-2 backdrop-blur-2xl shadow-neon-primary my-2"
+              >
+                <div className="flex flex-col items-center">
+                  <span className="text-rose-400 font-mono text-xs font-bold">{formatTime(logic.recordingTime)}</span>
+                </div>
+                <div className="w-px h-6 bg-white/20"></div>
+                <div className="flex flex-col items-center">
+                  <span className="text-white font-mono text-xs font-bold">{formatTime(120 - logic.recordingTime)}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           
           <motion.div whileTap={{ scale: 0.9 }}>
             <Button

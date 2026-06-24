@@ -42,7 +42,7 @@ export function NewChatSetupModal({ isOpen, onClose }: Props) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleStart(); }}>
-      <DialogContent className="bg-zinc-950 border-white/10 text-white sm:max-w-md" hideClose>
+      <DialogContent className="bg-zinc-950 border-white/10 text-white sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-headline tracking-widest uppercase text-center text-primary text-xl">
             Nueva Conversación
